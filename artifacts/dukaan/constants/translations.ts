@@ -21,7 +21,7 @@ export const BUSINESS_TYPES: {
   mr: string;
   icon: string;
 }[] = [
-  { type: "kirana", en: "Grocery / Kirana", hi: "किराना", mr: "किराणा", icon: "shopping-basket" },
+  { type: "kirana", en: "Grocery / Kirana", hi: "किराना", mr: "किराणा", icon: "shopping-bag" },
   { type: "dairy", en: "Milk / Dairy", hi: "दूध / डेयरी", mr: "दूध / डेअरी", icon: "droplet" },
   { type: "hardware", en: "Hardware", hi: "हार्डवेयर", mr: "हार्डवेअर", icon: "tool" },
   { type: "flour_mill", en: "Flour Mill", hi: "आटा चक्की", mr: "पीठ चक्की", icon: "wind" },

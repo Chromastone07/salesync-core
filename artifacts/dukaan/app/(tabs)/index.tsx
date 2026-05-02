@@ -3,9 +3,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
-  FlatList,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -14,9 +14,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useApp } from "@/context/AppContext";
 import { useStore } from "@/context/StoreContext";
+import type { Sale } from "@/context/StoreContext";
 import { useColors } from "@/hooks/useColors";
 import { translations } from "@/constants/translations";
-import type { Sale } from "@/context/StoreContext";
+import { WeeklyChart } from "@/components/WeeklyChart";
 
 function formatTime(dateStr: string) {
   const d = new Date(dateStr);
@@ -92,7 +93,7 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { language, shopName } = useApp();
-  const { getTodaySales, getTodayTotal } = useStore();
+  const { sales, getTodaySales, getTodayTotal } = useStore();
   const t = translations[language];
 
   const todaySales = getTodaySales();
@@ -186,28 +187,30 @@ export default function DashboardScreen() {
       fontFamily: "Inter_600SemiBold",
       color: colors.foreground,
     },
-    list: { paddingHorizontal: 20 },
+    salesList: {
+      paddingHorizontal: 20,
+    },
     emptyState: {
       alignItems: "center",
-      paddingVertical: 48,
+      paddingVertical: 32,
     },
     emptyIcon: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
       backgroundColor: colors.muted,
       alignItems: "center",
       justifyContent: "center",
-      marginBottom: 16,
+      marginBottom: 12,
     },
     emptyTitle: {
-      fontSize: 16,
+      fontSize: 15,
       fontFamily: "Inter_600SemiBold",
       color: colors.foreground,
-      marginBottom: 6,
+      marginBottom: 4,
     },
     emptyText: {
-      fontSize: 14,
+      fontSize: 13,
       fontFamily: "Inter_400Regular",
       color: colors.mutedForeground,
       textAlign: "center",
@@ -217,6 +220,7 @@ export default function DashboardScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Fixed header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View>
@@ -235,46 +239,50 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      <View style={styles.statsCard}>
-        <LinearGradient
-          colors={["#F97316", "#EA580C"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.statsGradient}
-        >
-          <Text style={styles.statsLabel}>{t.todaySales}</Text>
-          <Text style={styles.statsAmount}>{formatCurrency(todayTotal)}</Text>
-          <View style={styles.statsRow}>
-            <Feather name="shopping-bag" size={12} color="#FFFFFF" />
-            <Text style={styles.statsCount}>
-              {todaySales.length} {t.salesCount}
-            </Text>
-          </View>
-        </LinearGradient>
-      </View>
-
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{t.recentSales}</Text>
-      </View>
-
-      <FlatList
-        data={todaySales}
-        keyExtractor={(item) => item.id}
-        style={styles.list}
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={!!todaySales.length}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
-              <Feather name="sunrise" size={28} color={colors.mutedForeground} />
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {/* Today's revenue card */}
+        <View style={styles.statsCard}>
+          <LinearGradient
+            colors={["#F97316", "#EA580C"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.statsGradient}
+          >
+            <Text style={styles.statsLabel}>{t.todaySales}</Text>
+            <Text style={styles.statsAmount}>{formatCurrency(todayTotal)}</Text>
+            <View style={styles.statsRow}>
+              <Feather name="shopping-bag" size={12} color="#FFFFFF" />
+              <Text style={styles.statsCount}>
+                {todaySales.length} {t.salesCount}
+              </Text>
             </View>
-            <Text style={styles.emptyTitle}>{t.noSalesToday}</Text>
-            <Text style={styles.emptyText}>{t.tapToAdd}</Text>
-          </View>
-        }
-        renderItem={({ item }) => <SaleCard sale={item} />}
-        ListFooterComponent={<View style={styles.listBottom} />}
-      />
+          </LinearGradient>
+        </View>
+
+        {/* 7-day bar chart */}
+        <WeeklyChart sales={sales} />
+
+        {/* Today's sales list */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{t.recentSales}</Text>
+        </View>
+
+        <View style={styles.salesList}>
+          {todaySales.length === 0 ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}>
+                <Feather name="sunrise" size={24} color={colors.mutedForeground} />
+              </View>
+              <Text style={styles.emptyTitle}>{t.noSalesToday}</Text>
+              <Text style={styles.emptyText}>{t.tapToAdd}</Text>
+            </View>
+          ) : (
+            todaySales.map((sale) => <SaleCard key={sale.id} sale={sale} />)
+          )}
+        </View>
+
+        <View style={styles.listBottom} />
+      </ScrollView>
     </View>
   );
 }
