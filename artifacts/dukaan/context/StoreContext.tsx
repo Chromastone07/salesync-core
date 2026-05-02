@@ -1,0 +1,169 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+
+export type InventoryItem = {
+  id: string;
+  label: string;
+  localLabel: string;
+  unit: string;
+  rate: number;
+  isService: boolean;
+};
+
+export type SaleLineItem = {
+  item_id: string;
+  label: string;
+  quantity: number;
+  unit: string;
+  rate: number;
+  total: number;
+  is_service: boolean;
+};
+
+export type Sale = {
+  id: string;
+  date: string;
+  items: SaleLineItem[];
+  total: number;
+  note: string;
+};
+
+type StoreState = {
+  inventoryItems: InventoryItem[];
+  sales: Sale[];
+  isLoading: boolean;
+  addInventoryItem: (item: Omit<InventoryItem, "id">) => Promise<void>;
+  updateInventoryItem: (id: string, updates: Partial<Omit<InventoryItem, "id">>) => Promise<void>;
+  deleteInventoryItem: (id: string) => Promise<void>;
+  addSale: (items: SaleLineItem[], note?: string) => Promise<Sale>;
+  deleteSale: (id: string) => Promise<void>;
+  getTodaySales: () => Sale[];
+  getTodayTotal: () => number;
+};
+
+const StoreContext = createContext<StoreState | null>(null);
+
+const STORAGE_KEYS = {
+  INVENTORY: "store_inventory",
+  SALES: "store_sales",
+};
+
+function genId() {
+  return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+}
+
+export function StoreProvider({ children }: { children: React.ReactNode }) {
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [inv, sal] = await Promise.all([
+          AsyncStorage.getItem(STORAGE_KEYS.INVENTORY),
+          AsyncStorage.getItem(STORAGE_KEYS.SALES),
+        ]);
+        if (inv) setInventoryItems(JSON.parse(inv) as InventoryItem[]);
+        if (sal) setSales(JSON.parse(sal) as Sale[]);
+      } catch {
+        // ignore
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const saveInventory = useCallback(async (items: InventoryItem[]) => {
+    setInventoryItems(items);
+    await AsyncStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(items));
+  }, []);
+
+  const saveSales = useCallback(async (s: Sale[]) => {
+    setSales(s);
+    await AsyncStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(s));
+  }, []);
+
+  const addInventoryItem = useCallback(
+    async (item: Omit<InventoryItem, "id">) => {
+      const newItem: InventoryItem = { ...item, id: genId() };
+      await saveInventory([...inventoryItems, newItem]);
+    },
+    [inventoryItems, saveInventory]
+  );
+
+  const updateInventoryItem = useCallback(
+    async (id: string, updates: Partial<Omit<InventoryItem, "id">>) => {
+      const updated = inventoryItems.map((i) =>
+        i.id === id ? { ...i, ...updates } : i
+      );
+      await saveInventory(updated);
+    },
+    [inventoryItems, saveInventory]
+  );
+
+  const deleteInventoryItem = useCallback(
+    async (id: string) => {
+      await saveInventory(inventoryItems.filter((i) => i.id !== id));
+    },
+    [inventoryItems, saveInventory]
+  );
+
+  const addSale = useCallback(
+    async (items: SaleLineItem[], note: string = "") => {
+      const total = items.reduce((s, i) => s + i.total, 0);
+      const sale: Sale = {
+        id: genId(),
+        date: new Date().toISOString(),
+        items,
+        total,
+        note,
+      };
+      await saveSales([sale, ...sales]);
+      return sale;
+    },
+    [sales, saveSales]
+  );
+
+  const deleteSale = useCallback(
+    async (id: string) => {
+      await saveSales(sales.filter((s) => s.id !== id));
+    },
+    [sales, saveSales]
+  );
+
+  const getTodaySales = useCallback(() => {
+    const today = new Date().toDateString();
+    return sales.filter((s) => new Date(s.date).toDateString() === today);
+  }, [sales]);
+
+  const getTodayTotal = useCallback(() => {
+    return getTodaySales().reduce((sum, s) => sum + s.total, 0);
+  }, [getTodaySales]);
+
+  return (
+    <StoreContext.Provider
+      value={{
+        inventoryItems,
+        sales,
+        isLoading,
+        addInventoryItem,
+        updateInventoryItem,
+        deleteInventoryItem,
+        addSale,
+        deleteSale,
+        getTodaySales,
+        getTodayTotal,
+      }}
+    >
+      {children}
+    </StoreContext.Provider>
+  );
+}
+
+export function useStore() {
+  const ctx = useContext(StoreContext);
+  if (!ctx) throw new Error("useStore must be used within StoreProvider");
+  return ctx;
+}
