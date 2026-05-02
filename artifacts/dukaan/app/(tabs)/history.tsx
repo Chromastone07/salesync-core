@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -7,6 +7,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -67,6 +68,8 @@ function SaleCard({
     .map((i) => `${i.label} ×${i.quantity}${i.unit !== "piece" ? " " + i.unit : ""}`)
     .join(" · ");
 
+  const hasCustomer = !!(sale.customerName || sale.customerPhone);
+
   const s = StyleSheet.create({
     card: {
       marginHorizontal: 16,
@@ -103,6 +106,22 @@ function SaleCard({
       fontSize: 13,
       fontFamily: "Inter_500Medium",
       color: colors.mutedForeground,
+    },
+    customerBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      backgroundColor: colors.muted,
+      alignSelf: "flex-start",
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 10,
+      marginBottom: 5,
+    },
+    customerBadgeText: {
+      fontSize: 12,
+      fontFamily: "Inter_500Medium",
+      color: colors.foreground,
     },
     itemSummary: {
       fontSize: 13,
@@ -223,6 +242,16 @@ function SaleCard({
             <Feather name="clock" size={11} color={colors.mutedForeground} />
             <Text style={s.timeText}>{formatTime(sale.date)}</Text>
           </View>
+          {hasCustomer && (
+            <View style={s.customerBadge}>
+              <Feather name="user" size={11} color={colors.foreground} />
+              <Text style={s.customerBadgeText}>
+                {[sale.customerName, sale.customerPhone]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </Text>
+            </View>
+          )}
           <Text style={s.itemSummary} numberOfLines={expanded ? undefined : 1}>
             {itemSummary}
           </Text>
@@ -282,8 +311,19 @@ export default function HistoryScreen() {
   const { sales, deleteSale } = useStore();
   const t = translations[language];
   const [exporting, setExporting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const groups = groupSalesByDate(sales);
+  const filteredSales = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return sales;
+    return sales.filter((s) => {
+      const nameMatch = s.customerName?.toLowerCase().includes(q);
+      const phoneMatch = s.customerPhone?.toLowerCase().includes(q);
+      return nameMatch || phoneMatch;
+    });
+  }, [sales, searchQuery]);
+
+  const groups = groupSalesByDate(filteredSales);
 
   const handleDelete = (sale: Sale) => {
     Alert.alert(t.deleteConfirm, `${sale.items.length} items — ₹${sale.total}`, [
@@ -340,6 +380,36 @@ export default function HistoryScreen() {
       fontSize: 12,
       fontFamily: "Inter_600SemiBold",
       color: exporting ? colors.mutedForeground : colors.foreground,
+    },
+    searchBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginHorizontal: 16,
+      marginTop: 12,
+      marginBottom: 4,
+      backgroundColor: colors.muted,
+      borderRadius: colors.radius,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 12,
+      height: 40,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 14,
+      fontFamily: "Inter_400Regular",
+      color: colors.foreground,
+    },
+    searchClear: {
+      padding: 2,
+    },
+    noResultsText: {
+      textAlign: "center",
+      marginTop: 40,
+      fontSize: 14,
+      fontFamily: "Inter_400Regular",
+      color: colors.mutedForeground,
     },
     dateHeader: {
       paddingHorizontal: 20,
@@ -399,6 +469,7 @@ export default function HistoryScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t.salesHistory}</Text>
         <Pressable
@@ -417,6 +488,30 @@ export default function HistoryScreen() {
         </Pressable>
       </View>
 
+      {/* Customer search bar */}
+      {sales.length > 0 && (
+        <View style={styles.searchBar}>
+          <Feather name="search" size={14} color={colors.mutedForeground} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by customer name or phone…"
+            placeholderTextColor={colors.mutedForeground}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+          {searchQuery.length > 0 && (
+            <Pressable
+              style={styles.searchClear}
+              onPress={() => setSearchQuery("")}
+            >
+              <Feather name="x" size={14} color={colors.mutedForeground} />
+            </Pressable>
+          )}
+        </View>
+      )}
+
       {sales.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIcon}>
@@ -425,6 +520,10 @@ export default function HistoryScreen() {
           <Text style={styles.emptyTitle}>{t.noHistory}</Text>
           <Text style={styles.emptyText}>{t.tapToAdd}</Text>
         </View>
+      ) : filteredSales.length === 0 ? (
+        <Text style={styles.noResultsText}>
+          No sales found for "{searchQuery}"
+        </Text>
       ) : (
         <FlatList
           data={groups}

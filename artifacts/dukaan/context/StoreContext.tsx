@@ -26,6 +26,14 @@ export type Sale = {
   items: SaleLineItem[];
   total: number;
   note: string;
+  customerName?: string;
+  customerPhone?: string;
+};
+
+type AddSaleOptions = {
+  note?: string;
+  customerName?: string;
+  customerPhone?: string;
 };
 
 type StoreState = {
@@ -35,7 +43,7 @@ type StoreState = {
   addInventoryItem: (item: Omit<InventoryItem, "id">) => Promise<void>;
   updateInventoryItem: (id: string, updates: Partial<Omit<InventoryItem, "id">>) => Promise<void>;
   deleteInventoryItem: (id: string) => Promise<void>;
-  addSale: (items: SaleLineItem[], note?: string) => Promise<Sale>;
+  addSale: (items: SaleLineItem[], options?: AddSaleOptions) => Promise<Sale>;
   deleteSale: (id: string) => Promise<void>;
   getTodaySales: () => Sale[];
   getTodayTotal: () => number;
@@ -111,14 +119,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addSale = useCallback(
-    async (items: SaleLineItem[], note: string = "") => {
+    async (items: SaleLineItem[], options: AddSaleOptions = {}) => {
       const total = items.reduce((s, i) => s + i.total, 0);
       const sale: Sale = {
         id: genId(),
         date: new Date().toISOString(),
         items,
         total,
-        note,
+        note: options.note ?? "",
+        customerName: options.customerName?.trim() || undefined,
+        customerPhone: options.customerPhone?.trim() || undefined,
       };
       await saveSales([sale, ...sales]);
       return sale;

@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -40,6 +41,9 @@ export default function SaleScreen() {
   const t = translations[language];
 
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [showCustomer, setShowCustomer] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
 
   const cartTotal = cart.reduce((s, i) => s + i.rate * i.quantity, 0);
   const cartCount = cart.reduce((s, c) => s + c.quantity, 0);
@@ -86,6 +90,13 @@ export default function SaleScreen() {
     }
   };
 
+  const handleClearAll = () => {
+    setCart([]);
+    setCustomerName("");
+    setCustomerPhone("");
+    setShowCustomer(false);
+  };
+
   const handleConfirmSale = async () => {
     if (cart.length === 0) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -98,14 +109,22 @@ export default function SaleScreen() {
       total: c.rate * c.quantity,
       is_service: c.isService,
     }));
-    await addSale(lineItems);
+    await addSale(lineItems, {
+      customerName: customerName.trim() || undefined,
+      customerPhone: customerPhone.trim() || undefined,
+    });
     setCart([]);
+    setCustomerName("");
+    setCustomerPhone("");
+    setShowCustomer(false);
     Alert.alert(
       t.billCreated ?? "Sale Recorded!",
       `${formatCurrency(cartTotal)} ${t.billCreatedSub ?? "added to today's register"}`,
       [{ text: "OK" }]
     );
   };
+
+  const tabBarHeight = Platform.OS === "web" ? 84 : 60;
 
   const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.background },
@@ -147,7 +166,6 @@ export default function SaleScreen() {
       paddingHorizontal: 14,
       gap: 10,
     },
-
     tile: {
       width: "30%",
       backgroundColor: colors.card,
@@ -176,7 +194,6 @@ export default function SaleScreen() {
       color: colors.mutedForeground,
       marginBottom: 6,
     },
-
     qtyRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -201,7 +218,6 @@ export default function SaleScreen() {
       minWidth: 18,
       textAlign: "center",
     },
-
     addBtn: {
       marginTop: 4,
       paddingHorizontal: 14,
@@ -214,7 +230,6 @@ export default function SaleScreen() {
       fontFamily: "Inter_600SemiBold",
       color: "#fff",
     },
-
     empty: {
       flex: 1,
       alignItems: "center",
@@ -244,15 +259,45 @@ export default function SaleScreen() {
       textAlign: "center",
       marginTop: 6,
     },
-
     footer: {
       borderTopWidth: 1,
       borderTopColor: colors.border,
       paddingHorizontal: 16,
-      paddingTop: 14,
-      paddingBottom: insets.bottom + (Platform.OS === "web" ? 84 : 60) + 12,
+      paddingTop: 12,
+      paddingBottom: insets.bottom + tabBarHeight + 12,
       backgroundColor: colors.background,
-      gap: 12,
+      gap: 10,
+    },
+    customerToggleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingVertical: 4,
+    },
+    customerToggleText: {
+      fontSize: 13,
+      fontFamily: "Inter_500Medium",
+      color: colors.primary,
+    },
+    customerFields: {
+      gap: 8,
+    },
+    inputRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.muted,
+      borderRadius: colors.radius,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 10,
+      gap: 8,
+      height: 40,
+    },
+    input: {
+      flex: 1,
+      fontSize: 14,
+      fontFamily: "Inter_400Regular",
+      color: colors.foreground,
     },
     cartSummary: {
       flexDirection: "row",
@@ -304,7 +349,7 @@ export default function SaleScreen() {
       <View style={s.header}>
         <Text style={s.headerTitle}>{t.newSale}</Text>
         {cart.length > 0 && (
-          <Pressable style={s.clearBtn} onPress={() => setCart([])}>
+          <Pressable style={s.clearBtn} onPress={handleClearAll}>
             <Feather name="x" size={14} color={colors.destructive} />
             <Text style={s.clearText}>{t.clearCart}</Text>
           </Pressable>
@@ -312,7 +357,11 @@ export default function SaleScreen() {
       </View>
 
       {/* Item grid */}
-      <ScrollView style={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={s.scroll}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {inventoryItems.length === 0 ? (
           <View style={s.empty}>
             <View style={s.emptyIcon}>
@@ -345,9 +394,7 @@ export default function SaleScreen() {
                     <Text style={s.tileRate}>
                       ₹{item.rate}/{item.unit}
                     </Text>
-
                     {isActive ? (
-                      /* qty stepper shown inline on the tile */
                       <View style={s.qtyRow}>
                         <Pressable
                           style={[s.qtyBtn, s.qtyBtnMinus]}
@@ -364,7 +411,6 @@ export default function SaleScreen() {
                         </Pressable>
                       </View>
                     ) : (
-                      /* add button on inactive tile */
                       <Pressable style={s.addBtn} onPress={() => increment(item)}>
                         <Text style={s.addBtnText}>+ Add</Text>
                       </Pressable>
@@ -378,8 +424,9 @@ export default function SaleScreen() {
         <View style={s.spacer} />
       </ScrollView>
 
-      {/* Bottom footer — always visible */}
+      {/* Bottom footer */}
       <View style={s.footer}>
+        {/* Cart summary */}
         <View style={s.cartSummary}>
           <View>
             <Text style={s.cartLabel}>{t.total ?? "Total"}</Text>
@@ -392,6 +439,65 @@ export default function SaleScreen() {
           </View>
         </View>
 
+        {/* Customer section — only show toggle when cart has items */}
+        {cart.length > 0 && (
+          <>
+            <Pressable
+              style={s.customerToggleRow}
+              onPress={() => setShowCustomer((v) => !v)}
+            >
+              <Feather
+                name={showCustomer ? "user-check" : "user-plus"}
+                size={15}
+                color={colors.primary}
+              />
+              <Text style={s.customerToggleText}>
+                {showCustomer
+                  ? customerName
+                    ? customerName
+                    : "Customer (optional)"
+                  : "Add customer (optional)"}
+              </Text>
+              <Feather
+                name={showCustomer ? "chevron-up" : "chevron-down"}
+                size={14}
+                color={colors.primary}
+              />
+            </Pressable>
+
+            {showCustomer && (
+              <View style={s.customerFields}>
+                <View style={s.inputRow}>
+                  <Feather name="user" size={14} color={colors.mutedForeground} />
+                  <TextInput
+                    style={s.input}
+                    placeholder="Customer name"
+                    placeholderTextColor={colors.mutedForeground}
+                    value={customerName}
+                    onChangeText={setCustomerName}
+                    autoCapitalize="words"
+                    returnKeyType="next"
+                  />
+                </View>
+                <View style={s.inputRow}>
+                  <Feather name="phone" size={14} color={colors.mutedForeground} />
+                  <TextInput
+                    style={s.input}
+                    placeholder="Phone number"
+                    placeholderTextColor={colors.mutedForeground}
+                    value={customerPhone}
+                    onChangeText={setCustomerPhone}
+                    keyboardType="phone-pad"
+                    returnKeyType="done"
+                    maxLength={10}
+                  />
+                </View>
+              </View>
+            )}
+          </>
+        )}
+
+        {/* Confirm button */}
         <Pressable
           style={[s.confirmBtn, cart.length === 0 && s.confirmBtnDisabled]}
           onPress={handleConfirmSale}

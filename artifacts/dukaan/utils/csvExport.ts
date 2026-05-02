@@ -39,19 +39,36 @@ export function buildWeeklyCSV(sales: Sale[]): string {
   });
 
   const rows: string[] = [
-    ["Date", "Time", "Bill No", "Item", "Qty", "Unit", "Rate (₹)", "Amount (₹)"].map(escapeCell).join(","),
+    [
+      "Date",
+      "Time",
+      "Bill No",
+      "Customer Name",
+      "Customer Phone",
+      "Item",
+      "Qty",
+      "Unit",
+      "Rate (₹)",
+      "Amount (₹)",
+    ]
+      .map(escapeCell)
+      .join(","),
   ];
 
   weeklySales.forEach((sale, billIdx) => {
     const dateStr = formatDateStr(sale.date);
     const timeStr = formatTimeStr(sale.date);
     const billNo = (billIdx + 1).toString();
+    const custName = sale.customerName ?? "";
+    const custPhone = sale.customerPhone ?? "";
     sale.items.forEach((item) => {
       rows.push(
         [
           dateStr,
           timeStr,
           billNo,
+          custName,
+          custPhone,
           item.label,
           item.quantity,
           item.unit,
@@ -73,7 +90,7 @@ export async function downloadWeeklyCSV(sales: Sale[]): Promise<void> {
   const filename = `dukaan-sales-${today.getFullYear()}${padDate(today.getMonth() + 1)}${padDate(today.getDate())}.csv`;
 
   if (Platform.OS === "web") {
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
