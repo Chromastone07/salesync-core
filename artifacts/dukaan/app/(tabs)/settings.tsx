@@ -251,7 +251,7 @@ export default function SettingsScreen() {
       fontFamily: "Inter_600SemiBold",
       color: colors.destructive,
     },
-    listBottom: { height: 60 },
+    listBottom: { height: 160 },
   });
 
   return (

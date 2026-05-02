@@ -220,7 +220,7 @@ export default function InventoryScreen() {
       color: colors.mutedForeground,
       textAlign: "center",
     },
-    listBottom: { height: 100 },
+    listBottom: { height: 160 },
     // Modal styles
     modalOverlay: {
       flex: 1,

@@ -212,7 +212,7 @@ export default function HistoryScreen() {
       textAlign: "center",
       marginTop: 6,
     },
-    listBottom: { height: 100 },
+    listBottom: { height: 160 },
   });
 
   if (sales.length === 0) {

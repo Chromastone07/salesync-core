@@ -212,7 +212,7 @@ export default function DashboardScreen() {
       color: colors.mutedForeground,
       textAlign: "center",
     },
-    listBottom: { height: 100 },
+    listBottom: { height: 160 },
   });
 
   return (

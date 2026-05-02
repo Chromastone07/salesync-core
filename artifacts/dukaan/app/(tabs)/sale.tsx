@@ -249,10 +249,10 @@ export default function SaleScreen() {
       borderTopWidth: 1,
       borderTopColor: colors.border,
       paddingHorizontal: 16,
-      paddingTop: 12,
-      paddingBottom: insets.bottom + (Platform.OS === "web" ? 16 : 8),
+      paddingTop: 14,
+      paddingBottom: insets.bottom + (Platform.OS === "web" ? 84 : 60) + 12,
       backgroundColor: colors.background,
-      gap: 10,
+      gap: 12,
     },
     cartSummary: {
       flexDirection: "row",
