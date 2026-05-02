@@ -37,53 +37,93 @@ function SaleCard({ sale }: { sale: Sale }) {
     card: {
       backgroundColor: colors.card,
       borderRadius: colors.radius,
-      padding: 16,
       marginBottom: 10,
-      flexDirection: "row",
-      alignItems: "center",
       borderWidth: 1,
       borderColor: colors.border,
+      overflow: "hidden",
+    },
+    top: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: 14,
+      paddingBottom: 10,
     },
     iconBox: {
-      width: 40,
-      height: 40,
-      borderRadius: 10,
+      width: 36,
+      height: 36,
+      borderRadius: 8,
       backgroundColor: colors.successLight,
       alignItems: "center",
       justifyContent: "center",
-      marginRight: 14,
+      marginRight: 12,
     },
     info: { flex: 1 },
-    itemCount: {
-      fontSize: 14,
-      fontFamily: "Inter_500Medium",
-      color: colors.foreground,
-    },
     time: {
-      fontSize: 12,
+      fontSize: 11,
       fontFamily: "Inter_400Regular",
       color: colors.mutedForeground,
-      marginTop: 2,
+      marginBottom: 3,
+    },
+    itemNames: {
+      fontSize: 13,
+      fontFamily: "Inter_500Medium",
+      color: colors.foreground,
+      lineHeight: 18,
     },
     amount: {
       fontSize: 18,
       fontFamily: "Inter_700Bold",
       color: colors.success,
     },
+    divider: { height: 1, backgroundColor: colors.border, marginHorizontal: 14 },
+    itemsRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+      padding: 10,
+      paddingTop: 8,
+    },
+    chip: {
+      backgroundColor: colors.muted,
+      borderRadius: 12,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    chipText: {
+      fontSize: 11,
+      fontFamily: "Inter_500Medium",
+      color: colors.mutedForeground,
+    },
   });
+
+  const itemNames = sale.items
+    .map((i) => `${i.label} ×${i.quantity}`)
+    .join(" · ");
 
   return (
     <View style={styles.card}>
-      <View style={styles.iconBox}>
-        <Feather name="check" size={18} color={colors.success} />
+      <View style={styles.top}>
+        <View style={styles.iconBox}>
+          <Feather name="check" size={16} color={colors.success} />
+        </View>
+        <View style={styles.info}>
+          <Text style={styles.time}>{formatTime(sale.date)}</Text>
+          <Text style={styles.itemNames} numberOfLines={2}>
+            {itemNames}
+          </Text>
+        </View>
+        <Text style={styles.amount}>{formatCurrency(sale.total)}</Text>
       </View>
-      <View style={styles.info}>
-        <Text style={styles.itemCount}>
-          {sale.items.length} {sale.items.length === 1 ? "item" : "items"}
-        </Text>
-        <Text style={styles.time}>{formatTime(sale.date)}</Text>
+      <View style={styles.divider} />
+      <View style={styles.itemsRow}>
+        {sale.items.map((item, i) => (
+          <View key={i} style={styles.chip}>
+            <Text style={styles.chipText}>
+              {item.label} · {item.quantity} {item.unit} · ₹{item.total.toFixed(0)}
+            </Text>
+          </View>
+        ))}
       </View>
-      <Text style={styles.amount}>{formatCurrency(sale.total)}</Text>
     </View>
   );
 }
