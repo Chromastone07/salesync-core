@@ -176,7 +176,22 @@ export default function SaleScreen() {
     setUnknownBarcode("");
   };
 
-  const handleConfirmSale = async () => {
+  const processSale = async (lineItems: SaleLineItem[]) => {
+    const sale = await addSale(lineItems, {
+      customerName: customerName.trim() || undefined,
+      customerPhone: customerPhone.trim() || undefined,
+      status: paymentStatus,
+    });
+    setCart([]);
+    setQuickAmount("");
+    setCustomerName("");
+    setCustomerPhone("");
+    setShowCustomer(false);
+    setPaymentStatus("paid");
+    setReceiptSale(sale);
+  };
+
+  const handleConfirmSale = () => {
     if (cart.length === 0) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const lineItems: SaleLineItem[] = cart.map((c) => ({
@@ -188,20 +203,22 @@ export default function SaleScreen() {
       total: c.rate * c.quantity,
       is_service: c.isService,
     }));
-    const sale = await addSale(lineItems, {
-      customerName: customerName.trim() || undefined,
-      customerPhone: customerPhone.trim() || undefined,
-      status: paymentStatus,
-    });
-    setCart([]);
-    setCustomerName("");
-    setCustomerPhone("");
-    setShowCustomer(false);
-    setPaymentStatus("paid");
-    setReceiptSale(sale);
+    
+    if (paymentStatus === "unpaid" && !customerName.trim()) {
+      Alert.alert(
+        "Missing Customer Details",
+        "You are about to create a 'Pay Later' (Khata) bill without a customer name. Are you sure you want to proceed?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Proceed", style: "default", onPress: () => processSale(lineItems) }
+        ]
+      );
+    } else {
+      processSale(lineItems);
+    }
   };
 
-  const handleQuickSale = async () => {
+  const handleQuickSale = () => {
     const amt = parseFloat(quickAmount);
     if (isNaN(amt) || amt <= 0) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -216,18 +233,18 @@ export default function SaleScreen() {
       is_service: true,
     };
     
-    const sale = await addSale([lineItem], {
-      customerName: customerName.trim() || undefined,
-      customerPhone: customerPhone.trim() || undefined,
-      status: paymentStatus,
-    });
-    
-    setQuickAmount("");
-    setCustomerName("");
-    setCustomerPhone("");
-    setShowCustomer(false);
-    setPaymentStatus("paid");
-    setReceiptSale(sale);
+    if (paymentStatus === "unpaid" && !customerName.trim()) {
+      Alert.alert(
+        "Missing Customer Details",
+        "You are about to create a 'Pay Later' (Khata) bill without a customer name. Are you sure you want to proceed?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Proceed", style: "default", onPress: () => processSale([lineItem]) }
+        ]
+      );
+    } else {
+      processSale([lineItem]);
+    }
   };
 
   const tabBarHeight = Platform.OS === "web" ? 84 : 60;

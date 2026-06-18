@@ -121,11 +121,13 @@ function SaleCard({
       paddingVertical: 3,
       borderRadius: 10,
       marginBottom: 5,
+      flexShrink: 1,
     },
     customerBadgeText: {
       fontSize: 12,
       fontFamily: "Inter_500Medium",
       color: colors.foreground,
+      flexShrink: 1,
     },
     itemSummary: {
       fontSize: 13,
@@ -238,8 +240,12 @@ function SaleCard({
   return (
     <View style={s.card}>
       <View style={s.header}>
-        <View style={s.iconBox}>
-          <Feather name="check" size={16} color={colors.success} />
+        <View style={[s.iconBox, sale.status === "unpaid" && { backgroundColor: "#ffedd5" }]}>
+          <Feather 
+            name={sale.status === "unpaid" ? "clock" : "check"} 
+            size={16} 
+            color={sale.status === "unpaid" ? "#ea580c" : colors.success} 
+          />
         </View>
         <View style={s.meta}>
           <View style={s.timeRow}>
@@ -249,7 +255,7 @@ function SaleCard({
           {hasCustomer && (
             <View style={s.customerBadge}>
               <Feather name="user" size={11} color={colors.foreground} />
-              <Text style={s.customerBadgeText}>
+              <Text style={s.customerBadgeText} numberOfLines={1}>
                 {[sale.customerName, sale.customerPhone]
                   .filter(Boolean)
                   .join(" · ")}
@@ -259,6 +265,14 @@ function SaleCard({
           <Text style={s.itemSummary} numberOfLines={expanded ? undefined : 1}>
             {itemSummary}
           </Text>
+          {sale.status === "unpaid" && onMarkAsPaid && (
+            <Pressable
+              style={{ backgroundColor: "#16a34a", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, marginTop: 8, alignSelf: "flex-start" }}
+              onPress={onMarkAsPaid}
+            >
+              <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#fff" }}>Mark Paid</Text>
+            </Pressable>
+          )}
         </View>
         <View style={s.right}>
           <Text style={s.total}>₹{sale.total.toFixed(0)}</Text>
@@ -269,14 +283,6 @@ function SaleCard({
             >
               <Feather name="file-text" size={13} color={colors.foreground} />
             </Pressable>
-            {sale.status === "unpaid" && onMarkAsPaid && (
-              <Pressable
-                style={[s.expandBtn, { backgroundColor: "#16a34a", width: "auto", paddingHorizontal: 10, borderRadius: 14 }]}
-                onPress={onMarkAsPaid}
-              >
-                <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#fff" }}>Mark Paid</Text>
-              </Pressable>
-            )}
             <Pressable
               style={s.expandBtn}
               onPress={() => setExpanded((v) => !v)}
