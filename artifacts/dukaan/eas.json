@@ -9,18 +9,10 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal",
-      "projectRoot": "./artifacts/dukaan",
-      "env": {
-        "PNPM_VERSION": "10.33.2"
-      }
+      "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true,
-      "projectRoot": "./artifacts/dukaan",
-      "env": {
-        "PNPM_VERSION": "10.33.2"
-      }
+      "autoIncrement": true
     }
   },
   "submit": {
