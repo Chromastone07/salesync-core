@@ -111,6 +111,12 @@ function SaleCard({
       fontFamily: "Inter_500Medium",
       color: colors.mutedForeground,
     },
+    customerRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+      marginBottom: 6,
+    },
     customerBadge: {
       flexDirection: "row",
       alignItems: "center",
@@ -120,7 +126,6 @@ function SaleCard({
       paddingHorizontal: 8,
       paddingVertical: 3,
       borderRadius: 10,
-      marginBottom: 5,
       flexShrink: 1,
     },
     customerBadgeText: {
@@ -253,13 +258,19 @@ function SaleCard({
             <Text style={s.timeText}>{formatTime(sale.date)}</Text>
           </View>
           {hasCustomer && (
-            <View style={s.customerBadge}>
-              <Feather name="user" size={11} color={colors.foreground} />
-              <Text style={s.customerBadgeText} numberOfLines={1}>
-                {[sale.customerName, sale.customerPhone]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </Text>
+            <View style={s.customerRow}>
+              {sale.customerName && (
+                <View style={s.customerBadge}>
+                  <Feather name="user" size={11} color={colors.foreground} />
+                  <Text style={s.customerBadgeText} numberOfLines={1}>{sale.customerName}</Text>
+                </View>
+              )}
+              {sale.customerPhone && (
+                <View style={s.customerBadge}>
+                  <Feather name="phone" size={11} color={colors.foreground} />
+                  <Text style={s.customerBadgeText}>{sale.customerPhone}</Text>
+                </View>
+              )}
             </View>
           )}
           <Text style={s.itemSummary} numberOfLines={expanded ? undefined : 1}>
