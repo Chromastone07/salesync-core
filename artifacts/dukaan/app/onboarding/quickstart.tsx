@@ -31,7 +31,7 @@ export default function QuickStartScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { language, businessType, completeOnboarding } = useApp();
-  const { addInventoryItem } = useStore();
+  const { addInventoryItems } = useStore();
   const t = translations[language];
 
   const suggested = SUGGESTED_ITEMS[businessType] ?? SUGGESTED_ITEMS.other;
@@ -58,16 +58,19 @@ export default function QuickStartScreen() {
     setIsSaving(true);
     try {
       const selectedItems = items.filter((i) => i.selected);
-      for (const item of selectedItems) {
+      const itemsToAdd = selectedItems.map((item) => {
         const label =
           language === "hi" ? item.hi : language === "mr" ? item.mr : item.en;
-        await addInventoryItem({
+        return {
           label: item.en,
           localLabel: label,
           unit: item.unit,
           rate: parseFloat(item.customRate) || item.rate,
           isService: item.isService,
-        });
+        };
+      });
+      if (itemsToAdd.length > 0) {
+        await addInventoryItems(itemsToAdd);
       }
       await completeOnboarding();
       router.replace("/(tabs)");

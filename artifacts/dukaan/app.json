@@ -1,11 +1,12 @@
 {
   "expo": {
-    "name": "Dukaan - Digital Register",
-    "slug": "dukaan",
+    "jsEngine": "hermes",
+    "name": "SaleSync - Digital Register",
+    "slug": "salesync",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "dukaan",
+    "scheme": "salesync",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -28,7 +29,13 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow SaleSync to access your camera to scan barcodes."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

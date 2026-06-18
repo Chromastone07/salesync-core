@@ -37,10 +37,11 @@ export default function SettingsScreen() {
     setShopName,
     resetApp,
   } = useApp();
-  const { sales, inventoryItems } = useStore();
+  const { sales, inventoryItems, clearStore, exportData, importData } = useStore();
   const t = translations[language];
   const [editingShop, setEditingShop] = useState(false);
   const [shopInput, setShopInput] = useState(shopName);
+  const [showDangerZone, setShowDangerZone] = useState(false);
 
   const businessLabel = BUSINESS_TYPES.find((b) => b.type === businessType);
   const businessName =
@@ -63,14 +64,48 @@ export default function SettingsScreen() {
 
   const handleReset = () => {
     Alert.alert(
-      "Reset App",
-      "This will delete ALL your data including inventory and sales history. This cannot be undone.",
+      "Backup Recommended",
+      "Do you want to export a backup of your data before resetting the app?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Skip & Reset",
+          style: "destructive",
+          onPress: performReset,
+        },
+        {
+          text: "Backup Now",
+          onPress: async () => {
+            try {
+              await exportData();
+              performReset();
+            } catch (e) {
+              Alert.alert(
+                "Backup Incomplete",
+                "Backup was cancelled or failed. Do you still want to reset?",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Reset Anyway", style: "destructive", onPress: performReset }
+                ]
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const performReset = () => {
+    Alert.alert(
+      "Final Warning: Reset App",
+      "Are you absolutely sure? This will delete ALL your data including inventory and sales history. This cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Reset Everything",
           style: "destructive",
           onPress: async () => {
+            await clearStore();
             await resetApp();
             router.replace("/onboarding/language");
           },
@@ -348,20 +383,69 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        <View style={styles.guestCard}>
-          <View style={styles.guestIcon}>
-            <Feather name="shield" size={18} color="#FFFFFF" />
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Data & Backup</Text>
+          <View style={[styles.row, styles.rowFirst]}>
+            <View style={styles.rowIcon}>
+              <Feather name="upload-cloud" size={16} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>Backup Data</Text>
+              <Text style={styles.rowValue}>Save your data to a file</Text>
+            </View>
+            <Pressable style={styles.saveBtn} onPress={exportData}>
+              <Text style={styles.saveBtnText}>Export</Text>
+            </Pressable>
           </View>
-          <View style={styles.guestInfo}>
-            <Text style={styles.guestTitle}>{t.guestMode}</Text>
-            <Text style={styles.guestDesc}>{t.backupDesc}</Text>
+          <View style={styles.row}>
+            <View style={styles.rowIcon}>
+              <Feather name="download-cloud" size={16} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>Restore Data</Text>
+              <Text style={styles.rowValue}>Load data from a file</Text>
+            </View>
+            <Pressable style={[styles.saveBtn, { backgroundColor: colors.mutedForeground }]} onPress={async () => {
+              try {
+                const success = await importData();
+                if (success) {
+                  Alert.alert("Success", "Data restored successfully!");
+                }
+              } catch (e) {
+                Alert.alert("Import Failed", e instanceof Error ? e.message : "Invalid backup file.");
+              }
+            }}>
+              <Text style={styles.saveBtnText}>Import</Text>
+            </Pressable>
           </View>
-          <Feather name="cloud" size={20} color={colors.primary} />
         </View>
 
-        <Pressable style={styles.resetBtn} onPress={handleReset}>
-          <Text style={styles.resetBtnText}>Reset App</Text>
-        </Pressable>
+        <View style={styles.section}>
+          <Pressable onPress={() => setShowDangerZone(!showDangerZone)}>
+            <View style={[styles.row, styles.rowFirst, { borderBottomWidth: showDangerZone ? 1 : 0 }]}>
+              <View style={[styles.rowIcon, { backgroundColor: "#FEE2E2" }]}>
+                <Feather name="alert-triangle" size={16} color={colors.destructive} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowLabel, { color: colors.destructive }]}>Danger Zone</Text>
+                <Text style={styles.rowValue}>Advanced destructive actions</Text>
+              </View>
+              <Feather name={showDangerZone ? "chevron-up" : "chevron-down"} size={20} color={colors.mutedForeground} />
+            </View>
+          </Pressable>
+
+          {showDangerZone && (
+            <View style={[styles.row, { borderBottomWidth: 0, paddingLeft: 66 }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowLabel}>Reset App</Text>
+                <Text style={styles.rowValue}>Delete all data</Text>
+              </View>
+              <Pressable style={[styles.saveBtn, { backgroundColor: colors.destructive }]} onPress={handleReset}>
+                <Text style={styles.saveBtnText}>Reset</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
 
         <View style={styles.listBottom} />
       </ScrollView>

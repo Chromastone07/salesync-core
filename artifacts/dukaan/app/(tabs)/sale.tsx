@@ -15,9 +15,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useApp } from "@/context/AppContext";
 import { useStore } from "@/context/StoreContext";
-import type { SaleLineItem } from "@/context/StoreContext";
+import type { SaleLineItem, Sale } from "@/context/StoreContext";
 import { useColors } from "@/hooks/useColors";
 import { translations } from "@/constants/translations";
+import { ScannerModal } from "@/components/ScannerModal";
+import { UnknownBarcodeModal } from "@/components/UnknownBarcodeModal";
+import { ScannedItemModal } from "@/components/ScannedItemModal";
+import { ReceiptModal } from "@/components/ReceiptModal";
 
 type CartItem = {
   itemId: string;
@@ -37,13 +41,29 @@ export default function SaleScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { language } = useApp();
-  const { inventoryItems, addSale } = useStore();
+  const { inventoryItems, addSale, addInventoryItem } = useStore();
   const t = translations[language];
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCustomer, setShowCustomer] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [mode, setMode] = useState<"items" | "quick">("items");
+  const [quickAmount, setQuickAmount] = useState("");
+  const [showScanner, setShowScanner] = useState(false);
+  const [unknownBarcode, setUnknownBarcode] = useState("");
+  const [scannedItemId, setScannedItemId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [receiptSale, setReceiptSale] = useState<Sale | null>(null);
+
+  const filteredItems = inventoryItems.filter((item) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      item.label.toLowerCase().includes(q) ||
+      (item.localLabel && item.localLabel.toLowerCase().includes(q))
+    );
+  });
 
   const cartTotal = cart.reduce((s, i) => s + i.rate * i.quantity, 0);
   const cartCount = cart.reduce((s, c) => s + c.quantity, 0);
@@ -97,6 +117,63 @@ export default function SaleScreen() {
     setShowCustomer(false);
   };
 
+  const handleScan = (rawBarcode: string) => {
+    const barcode = rawBarcode.trim();
+    const item = inventoryItems.find((i) => i.barcode === barcode);
+    if (item) {
+      increment(item);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowScanner(false);
+      setScannedItemId(item.id);
+      return;
+    }
+
+    const quickSaleCartItem = cart.find((c) => c.itemId === `scanned-${barcode}`);
+    if (quickSaleCartItem) {
+      setCart((prev) =>
+        prev.map((c) =>
+          c.itemId === `scanned-${barcode}` ? { ...c, quantity: c.quantity + 1 } : c
+        )
+      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowScanner(false);
+      setScannedItemId(`scanned-${barcode}`);
+      return;
+    }
+
+    setShowScanner(false);
+    setUnknownBarcode(barcode);
+  };
+
+  const handleUnknownQuickSale = (price: number) => {
+    setCart((prev) => [
+      ...prev,
+      {
+        itemId: `scanned-${unknownBarcode}`,
+        label: `Scanned Item (${unknownBarcode})`,
+        localLabel: `Scanned Item (${unknownBarcode})`,
+        unit: "pc",
+        rate: price,
+        quantity: 1,
+        isService: true,
+      },
+    ]);
+    setUnknownBarcode("");
+  };
+
+  const handleUnknownAddCatalog = async (name: string, price: number) => {
+    const newItem = await addInventoryItem({
+      label: name,
+      localLabel: name,
+      unit: "pc",
+      rate: price,
+      isService: false,
+      barcode: unknownBarcode,
+    });
+    increment(newItem);
+    setUnknownBarcode("");
+  };
+
   const handleConfirmSale = async () => {
     if (cart.length === 0) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -109,7 +186,7 @@ export default function SaleScreen() {
       total: c.rate * c.quantity,
       is_service: c.isService,
     }));
-    await addSale(lineItems, {
+    const sale = await addSale(lineItems, {
       customerName: customerName.trim() || undefined,
       customerPhone: customerPhone.trim() || undefined,
     });
@@ -117,11 +194,34 @@ export default function SaleScreen() {
     setCustomerName("");
     setCustomerPhone("");
     setShowCustomer(false);
-    Alert.alert(
-      t.billCreated ?? "Sale Recorded!",
-      `${formatCurrency(cartTotal)} ${t.billCreatedSub ?? "added to today's register"}`,
-      [{ text: "OK" }]
-    );
+    setReceiptSale(sale);
+  };
+
+  const handleQuickSale = async () => {
+    const amt = parseFloat(quickAmount);
+    if (isNaN(amt) || amt <= 0) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    
+    const lineItem: SaleLineItem = {
+      item_id: "quick-sale",
+      label: t.quickSale ?? "Quick Sale",
+      quantity: 1,
+      unit: "total",
+      rate: amt,
+      total: amt,
+      is_service: true,
+    };
+    
+    const sale = await addSale([lineItem], {
+      customerName: customerName.trim() || undefined,
+      customerPhone: customerPhone.trim() || undefined,
+    });
+    
+    setQuickAmount("");
+    setCustomerName("");
+    setCustomerPhone("");
+    setShowCustomer(false);
+    setReceiptSale(sale);
   };
 
   const tabBarHeight = Platform.OS === "web" ? 84 : 60;
@@ -143,6 +243,25 @@ export default function SaleScreen() {
       fontFamily: "Inter_700Bold",
       color: colors.foreground,
     },
+    headerLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    scanBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: colors.muted,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 12,
+    },
+    scanBtnText: {
+      fontSize: 13,
+      fontFamily: "Inter_600SemiBold",
+      color: colors.primary,
+    },
     clearBtn: { flexDirection: "row", gap: 4, alignItems: "center" },
     clearText: {
       fontSize: 13,
@@ -150,6 +269,30 @@ export default function SaleScreen() {
       color: colors.destructive,
     },
     scroll: { flex: 1 },
+    searchContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginHorizontal: 20,
+      marginTop: 20,
+      backgroundColor: colors.card,
+      borderRadius: colors.radius,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 12,
+      height: 44,
+    },
+    searchIcon: {
+      marginRight: 8,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 15,
+      fontFamily: "Inter_400Regular",
+      color: colors.foreground,
+    },
+    searchClear: {
+      padding: 4,
+    },
     sectionLabel: {
       fontSize: 11,
       fontFamily: "Inter_600SemiBold",
@@ -341,19 +484,93 @@ export default function SaleScreen() {
       color: colors.mutedForeground,
     },
     spacer: { height: 16 },
+    modeToggle: {
+      flexDirection: "row",
+      marginHorizontal: 20,
+      marginTop: 14,
+      backgroundColor: colors.muted,
+      borderRadius: colors.radius,
+      padding: 4,
+    },
+    toggleBtn: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: "center",
+      borderRadius: colors.radius - 4,
+    },
+    toggleBtnActive: {
+      backgroundColor: colors.card,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    toggleText: {
+      fontSize: 14,
+      fontFamily: "Inter_600SemiBold",
+      color: colors.mutedForeground,
+    },
+    toggleTextActive: {
+      color: colors.foreground,
+    },
+    quickSaleContainer: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 40,
+      marginTop: 20,
+    },
+    quickAmountInput: {
+      fontSize: 48,
+      fontFamily: "Inter_700Bold",
+      color: colors.foreground,
+      textAlign: "center",
+      minWidth: 150,
+      borderBottomWidth: 2,
+      borderBottomColor: colors.primary,
+      paddingVertical: 10,
+    },
+    quickAmountLabel: {
+      fontSize: 14,
+      fontFamily: "Inter_500Medium",
+      color: colors.mutedForeground,
+      marginTop: 16,
+    },
   });
 
   return (
     <View style={s.root}>
       {/* Header */}
       <View style={s.header}>
-        <Text style={s.headerTitle}>{t.newSale}</Text>
-        {cart.length > 0 && (
+        <View style={s.headerLeft}>
+          <Text style={s.headerTitle}>{t.newSale}</Text>
+          <Pressable style={s.scanBtn} onPress={() => setShowScanner(true)}>
+            <Feather name="maximize" size={18} color={colors.primary} />
+            <Text style={s.scanBtnText}>{t.scanBarcode ?? "Scan"}</Text>
+          </Pressable>
+        </View>
+        {cart.length > 0 && mode === "items" && (
           <Pressable style={s.clearBtn} onPress={handleClearAll}>
             <Feather name="x" size={14} color={colors.destructive} />
             <Text style={s.clearText}>{t.clearCart}</Text>
           </Pressable>
         )}
+      </View>
+
+      <View style={s.modeToggle}>
+        <Pressable 
+          style={[s.toggleBtn, mode === "items" && s.toggleBtnActive]}
+          onPress={() => { setMode("items"); Haptics.selectionAsync(); }}
+        >
+          <Text style={[s.toggleText, mode === "items" && s.toggleTextActive]}>{t.inventory ?? "Items"}</Text>
+        </Pressable>
+        <Pressable 
+          style={[s.toggleBtn, mode === "quick" && s.toggleBtnActive]}
+          onPress={() => { setMode("quick"); Haptics.selectionAsync(); }}
+        >
+          <Text style={[s.toggleText, mode === "quick" && s.toggleTextActive]}>{t.quickSale ?? "Quick Sale"}</Text>
+        </Pressable>
       </View>
 
       {/* Item grid */}
@@ -362,7 +579,20 @@ export default function SaleScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {inventoryItems.length === 0 ? (
+        {mode === "quick" ? (
+          <View style={s.quickSaleContainer}>
+            <TextInput
+              style={s.quickAmountInput}
+              value={quickAmount}
+              onChangeText={setQuickAmount}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={colors.mutedForeground}
+              autoFocus
+            />
+            <Text style={s.quickAmountLabel}>{t.enterAmount ?? "Enter Amount"}</Text>
+          </View>
+        ) : inventoryItems.length === 0 ? (
           <View style={s.empty}>
             <View style={s.emptyIcon}>
               <Feather name="package" size={32} color={colors.mutedForeground} />
@@ -372,9 +602,24 @@ export default function SaleScreen() {
           </View>
         ) : (
           <>
+            <View style={s.searchContainer}>
+              <Feather name="search" size={16} color={colors.mutedForeground} style={s.searchIcon} />
+              <TextInput
+                style={s.searchInput}
+                placeholder="Search items..."
+                placeholderTextColor={colors.mutedForeground}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.length > 0 && (
+                <Pressable onPress={() => setSearchQuery("")} style={s.searchClear}>
+                  <Feather name="x-circle" size={16} color={colors.mutedForeground} />
+                </Pressable>
+              )}
+            </View>
             <Text style={s.sectionLabel}>{t.selectItems}</Text>
             <View style={s.grid}>
-              {inventoryItems.map((item) => {
+              {filteredItems.map((item) => {
                 const cartItem = getCartItem(item.id);
                 const isActive = !!cartItem;
                 return (
@@ -427,20 +672,22 @@ export default function SaleScreen() {
       {/* Bottom footer */}
       <View style={s.footer}>
         {/* Cart summary */}
-        <View style={s.cartSummary}>
-          <View>
-            <Text style={s.cartLabel}>{t.total ?? "Total"}</Text>
-            <Text style={s.cartTotal}>{formatCurrency(cartTotal)}</Text>
-            {cart.length > 0 && (
-              <Text style={s.cartItems}>
-                {cart.map((c) => `${c.localLabel || c.label} ×${c.quantity}`).join(", ")}
-              </Text>
-            )}
+        {mode === "items" && (
+          <View style={s.cartSummary}>
+            <View>
+              <Text style={s.cartLabel}>{t.total ?? "Total"}</Text>
+              <Text style={s.cartTotal}>{formatCurrency(cartTotal)}</Text>
+              {cart.length > 0 && (
+                <Text style={s.cartItems}>
+                  {cart.map((c) => `${c.localLabel || c.label} ×${c.quantity}`).join(", ")}
+                </Text>
+              )}
+            </View>
           </View>
-        </View>
+        )}
 
-        {/* Customer section — only show toggle when cart has items */}
-        {cart.length > 0 && (
+        {/* Customer section — only show toggle when cart has items or in quick mode */}
+        {(mode === "quick" || cart.length > 0) && (
           <>
             <Pressable
               style={s.customerToggleRow}
@@ -498,28 +745,90 @@ export default function SaleScreen() {
         )}
 
         {/* Confirm button */}
-        <Pressable
-          style={[s.confirmBtn, cart.length === 0 && s.confirmBtnDisabled]}
-          onPress={handleConfirmSale}
-          disabled={cart.length === 0}
-        >
-          <Feather
-            name="check-circle"
-            size={18}
-            color={cart.length === 0 ? colors.mutedForeground : "#fff"}
-          />
-          <Text
-            style={[
-              s.confirmBtnText,
-              cart.length === 0 && s.confirmBtnTextDisabled,
-            ]}
+        {mode === "items" ? (
+          <Pressable
+            style={[s.confirmBtn, cart.length === 0 && s.confirmBtnDisabled]}
+            onPress={handleConfirmSale}
+            disabled={cart.length === 0}
           >
-            {cart.length === 0
-              ? (t.selectItems ?? "Select items above")
-              : `${t.createBill ?? "Confirm Sale"} · ${formatCurrency(cartTotal)}`}
-          </Text>
-        </Pressable>
+            <Feather
+              name="check-circle"
+              size={18}
+              color={cart.length === 0 ? colors.mutedForeground : "#fff"}
+            />
+            <Text
+              style={[
+                s.confirmBtnText,
+                cart.length === 0 && s.confirmBtnTextDisabled,
+              ]}
+            >
+              {cart.length === 0
+                ? (t.selectItems ?? "Select items above")
+                : `${t.createBill ?? "Confirm Sale"} · ${formatCurrency(cartTotal)}`}
+            </Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            style={[s.confirmBtn, !quickAmount && s.confirmBtnDisabled]}
+            onPress={handleQuickSale}
+            disabled={!quickAmount}
+          >
+            <Feather
+              name="zap"
+              size={18}
+              color={!quickAmount ? colors.mutedForeground : "#fff"}
+            />
+            <Text
+              style={[
+                s.confirmBtnText,
+                !quickAmount && s.confirmBtnTextDisabled,
+              ]}
+            >
+              {!quickAmount
+                ? t.enterAmount ?? "Enter Amount"
+                : `${t.confirmQuickSale ?? "Confirm Sale"} · ${formatCurrency(parseFloat(quickAmount) || 0)}`}
+            </Text>
+          </Pressable>
+        )}
       </View>
+
+      <ScannerModal
+        visible={showScanner}
+        onScan={handleScan}
+        onClose={() => setShowScanner(false)}
+      />
+
+      <UnknownBarcodeModal
+        visible={!!unknownBarcode}
+        barcode={unknownBarcode}
+        onClose={() => setUnknownBarcode("")}
+        onQuickSale={handleUnknownQuickSale}
+        onAddCatalog={handleUnknownAddCatalog}
+      />
+
+      {scannedItemId && (
+        <ScannedItemModal
+          visible={!!scannedItemId}
+          itemLabel={getCartItem(scannedItemId)?.localLabel || getCartItem(scannedItemId)?.label || "Item"}
+          quantity={getCartItem(scannedItemId)?.quantity || 1}
+          onClose={() => setScannedItemId(null)}
+          onIncrement={() => {
+            const item = inventoryItems.find((i) => i.id === scannedItemId);
+            if (item) increment(item);
+          }}
+          onDecrement={() => decrement(scannedItemId)}
+          onCancel={() => {
+            setCart((prev) => prev.filter((c) => c.itemId !== scannedItemId));
+            setScannedItemId(null);
+          }}
+        />
+      )}
+
+      <ReceiptModal
+        visible={!!receiptSale}
+        sale={receiptSale}
+        onClose={() => setReceiptSale(null)}
+      />
     </View>
   );
 }

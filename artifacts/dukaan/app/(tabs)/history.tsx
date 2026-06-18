@@ -17,7 +17,7 @@ import { useStore } from "@/context/StoreContext";
 import type { Sale } from "@/context/StoreContext";
 import { useColors } from "@/hooks/useColors";
 import { translations } from "@/constants/translations";
-import { downloadWeeklyCSV } from "@/utils/csvExport";
+import { ReceiptModal } from "@/components/ReceiptModal";
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
@@ -57,9 +57,11 @@ function groupSalesByDate(sales: Sale[]): { date: string; sales: Sale[] }[] {
 function SaleCard({
   sale,
   onDelete,
+  onViewReceipt,
 }: {
   sale: Sale;
   onDelete: () => void;
+  onViewReceipt: () => void;
 }) {
   const colors = useColors();
   const [expanded, setExpanded] = useState(true);
@@ -261,6 +263,12 @@ function SaleCard({
           <View style={s.actions}>
             <Pressable
               style={s.expandBtn}
+              onPress={onViewReceipt}
+            >
+              <Feather name="file-text" size={13} color={colors.foreground} />
+            </Pressable>
+            <Pressable
+              style={s.expandBtn}
               onPress={() => setExpanded((v) => !v)}
             >
               <Feather
@@ -310,8 +318,8 @@ export default function HistoryScreen() {
   const { language } = useApp();
   const { sales, deleteSale } = useStore();
   const t = translations[language];
-  const [exporting, setExporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [receiptSale, setReceiptSale] = useState<Sale | null>(null);
 
   const filteredSales = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -336,18 +344,6 @@ export default function HistoryScreen() {
     ]);
   };
 
-  const handleExport = async () => {
-    if (exporting) return;
-    setExporting(true);
-    try {
-      await downloadWeeklyCSV(sales);
-    } catch {
-      Alert.alert("Export Failed", "Could not generate the report. Please try again.");
-    } finally {
-      setExporting(false);
-    }
-  };
-
   const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
@@ -364,22 +360,6 @@ export default function HistoryScreen() {
       fontSize: 20,
       fontFamily: "Inter_700Bold",
       color: colors.foreground,
-    },
-    exportBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      backgroundColor: colors.muted,
-      paddingHorizontal: 12,
-      paddingVertical: 7,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    exportBtnText: {
-      fontSize: 12,
-      fontFamily: "Inter_600SemiBold",
-      color: exporting ? colors.mutedForeground : colors.foreground,
     },
     searchBar: {
       flexDirection: "row",
@@ -472,20 +452,6 @@ export default function HistoryScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t.salesHistory}</Text>
-        <Pressable
-          style={styles.exportBtn}
-          onPress={handleExport}
-          disabled={exporting || sales.length === 0}
-        >
-          <Feather
-            name={exporting ? "loader" : "download"}
-            size={14}
-            color={exporting ? colors.mutedForeground : colors.foreground}
-          />
-          <Text style={styles.exportBtnText}>
-            {exporting ? "Exporting…" : "Weekly CSV"}
-          </Text>
-        </Pressable>
       </View>
 
       {/* Customer search bar */}
@@ -546,6 +512,7 @@ export default function HistoryScreen() {
                     key={sale.id}
                     sale={sale}
                     onDelete={() => handleDelete(sale)}
+                    onViewReceipt={() => setReceiptSale(sale)}
                   />
                 ))}
               </View>
@@ -554,6 +521,12 @@ export default function HistoryScreen() {
           ListFooterComponent={<View style={styles.listBottom} />}
         />
       )}
+
+      <ReceiptModal
+        visible={!!receiptSale}
+        sale={receiptSale}
+        onClose={() => setReceiptSale(null)}
+      />
     </View>
   );
 }

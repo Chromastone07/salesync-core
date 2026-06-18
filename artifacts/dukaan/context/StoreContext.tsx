@@ -1,5 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
+import * as DocumentPicker from "expo-document-picker";
 
 export type InventoryItem = {
   id: string;
@@ -8,6 +11,7 @@ export type InventoryItem = {
   unit: string;
   rate: number;
   isService: boolean;
+  barcode?: string;
 };
 
 export type SaleLineItem = {
@@ -40,13 +44,17 @@ type StoreState = {
   inventoryItems: InventoryItem[];
   sales: Sale[];
   isLoading: boolean;
-  addInventoryItem: (item: Omit<InventoryItem, "id">) => Promise<void>;
+  addInventoryItem: (item: Omit<InventoryItem, "id">) => Promise<InventoryItem>;
+  addInventoryItems: (items: Omit<InventoryItem, "id">[]) => Promise<void>;
   updateInventoryItem: (id: string, updates: Partial<Omit<InventoryItem, "id">>) => Promise<void>;
   deleteInventoryItem: (id: string) => Promise<void>;
   addSale: (items: SaleLineItem[], options?: AddSaleOptions) => Promise<Sale>;
   deleteSale: (id: string) => Promise<void>;
   getTodaySales: () => Sale[];
   getTodayTotal: () => number;
+  clearStore: () => Promise<void>;
+  exportData: () => Promise<void>;
+  importData: () => Promise<boolean>;
 };
 
 const StoreContext = createContext<StoreState | null>(null);
@@ -97,6 +105,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     async (item: Omit<InventoryItem, "id">) => {
       const newItem: InventoryItem = { ...item, id: genId() };
       await saveInventory([...inventoryItems, newItem]);
+      return newItem;
+    },
+    [inventoryItems, saveInventory]
+  );
+
+  const addInventoryItems = useCallback(
+    async (items: Omit<InventoryItem, "id">[]) => {
+      const newItems = items.map((item) => ({ ...item, id: genId() }));
+      await saveInventory([...inventoryItems, ...newItems]);
     },
     [inventoryItems, saveInventory]
   );
@@ -152,6 +169,65 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return getTodaySales().reduce((sum, s) => sum + s.total, 0);
   }, [getTodaySales]);
 
+  const clearStore = useCallback(async () => {
+    await AsyncStorage.multiRemove([STORAGE_KEYS.INVENTORY, STORAGE_KEYS.SALES]);
+    setInventoryItems([]);
+    setSales([]);
+  }, []);
+
+  const exportData = useCallback(async () => {
+    try {
+      const data = {
+        inventoryItems,
+        sales,
+      };
+      const jsonString = JSON.stringify(data, null, 2);
+      const fileUri = `${FileSystem.cacheDirectory}SaleSync_Backup.json`;
+      
+      await FileSystem.writeAsStringAsync(fileUri, jsonString);
+
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: "application/json",
+          dialogTitle: "Export SaleSync Backup",
+          UTI: "public.json",
+        });
+      }
+    } catch (e) {
+      console.error("Failed to export data", e);
+      throw e;
+    }
+  }, [inventoryItems, sales]);
+
+  const importData = useCallback(async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["application/json", "text/plain", "*/*"],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return false;
+      }
+
+      const fileUri = result.assets[0].uri;
+      const fileContent = await FileSystem.readAsStringAsync(fileUri);
+
+      const data = JSON.parse(fileContent);
+
+      if (Array.isArray(data.inventoryItems) && Array.isArray(data.sales)) {
+        await saveInventory(data.inventoryItems);
+        await saveSales(data.sales);
+        return true;
+      } else {
+        throw new Error("Invalid backup format");
+      }
+    } catch (e) {
+      throw new Error("Please select a valid SaleSync .json backup file.");
+    }
+  }, [saveInventory, saveSales]);
+
   return (
     <StoreContext.Provider
       value={{
@@ -159,12 +235,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         sales,
         isLoading,
         addInventoryItem,
+        addInventoryItems,
         updateInventoryItem,
         deleteInventoryItem,
         addSale,
         deleteSale,
         getTodaySales,
         getTodayTotal,
+        clearStore,
+        exportData,
+        importData,
       }}
     >
       {children}

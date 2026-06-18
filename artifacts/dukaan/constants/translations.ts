@@ -86,6 +86,14 @@ type T = {
   clearCart: string;
   shopName: string;
   shopNameHint: string;
+  quickSale: string;
+  enterAmount: string;
+  confirmQuickSale: string;
+  scanBarcode: string;
+  barcodeNotFound: string;
+  addToCatalog: string;
+  quickSaleOnly: string;
+  fetchingDetails: string;
 };
 
 export const translations: Record<Language, T> = {
@@ -97,7 +105,7 @@ export const translations: Record<Language, T> = {
     selectBusiness: "Choose your shop type",
     quickStart: "Add Your Items",
     quickStartDesc: "Set prices for your products",
-    startApp: "Start Using Dukaan",
+    startApp: "Start Using SaleSync",
     today: "Today",
     newSale: "Sale",
     inventory: "Items",
@@ -146,6 +154,14 @@ export const translations: Record<Language, T> = {
     clearCart: "Clear",
     shopName: "Shop Name",
     shopNameHint: "Your shop name (optional)",
+    quickSale: "Quick Sale",
+    enterAmount: "Enter Amount",
+    confirmQuickSale: "Confirm Quick Sale",
+    scanBarcode: "Scan Barcode",
+    barcodeNotFound: "New Item Scanned",
+    addToCatalog: "Add to Catalog",
+    quickSaleOnly: "Quick Sale Only",
+    fetchingDetails: "Fetching details...",
   },
   hi: {
     selectLanguage: "भाषा चुनें",
@@ -155,7 +171,7 @@ export const translations: Record<Language, T> = {
     selectBusiness: "अपना व्यापार चुनें",
     quickStart: "अपना सामान जोड़ें",
     quickStartDesc: "अपनी चीज़ों के दाम डालें",
-    startApp: "दुकान शुरू करें",
+    startApp: "SaleSync शुरू करें",
     today: "आज",
     newSale: "बिक्री",
     inventory: "सामान",
@@ -204,6 +220,14 @@ export const translations: Record<Language, T> = {
     clearCart: "साफ़ करें",
     shopName: "दुकान का नाम",
     shopNameHint: "आपकी दुकान का नाम (वैकल्पिक)",
+    quickSale: "तुरंत बिक्री",
+    enterAmount: "रकम डालें",
+    confirmQuickSale: "बिक्री पक्की करें",
+    scanBarcode: "बारकोड स्कैन करें",
+    barcodeNotFound: "नया सामान स्कैन किया",
+    addToCatalog: "कैटलॉग में जोड़ें",
+    quickSaleOnly: "केवल तुरंत बिक्री",
+    fetchingDetails: "जानकारी खोज रहे हैं...",
   },
   mr: {
     selectLanguage: "भाषा निवडा",
@@ -213,7 +237,7 @@ export const translations: Record<Language, T> = {
     selectBusiness: "तुमचा व्यवसाय निवडा",
     quickStart: "तुमच्या वस्तू जोडा",
     quickStartDesc: "तुमच्या वस्तूंच्या किंमती घाला",
-    startApp: "दुकान सुरू करा",
+    startApp: "SaleSync सुरू करा",
     today: "आज",
     newSale: "विक्री",
     inventory: "माल",
@@ -262,6 +286,14 @@ export const translations: Record<Language, T> = {
     clearCart: "साफ करा",
     shopName: "दुकानाचे नाव",
     shopNameHint: "तुमच्या दुकानाचे नाव (ऐच्छिक)",
+    quickSale: "जलद विक्री",
+    enterAmount: "रक्कम टाका",
+    confirmQuickSale: "विक्री निश्चित करा",
+    scanBarcode: "बारकोड स्कॅन करा",
+    barcodeNotFound: "नवीन वस्तू स्कॅन केली",
+    addToCatalog: "कॅटलॉगमध्ये जोडा",
+    quickSaleOnly: "फक्त जलद विक्री",
+    fetchingDetails: "माहिती शोधत आहे...",
   },
 };
 

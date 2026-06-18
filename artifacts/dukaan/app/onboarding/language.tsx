@@ -152,10 +152,10 @@ export default function LanguageScreen() {
           <View style={styles.header}>
             <View style={styles.logoRow}>
               <View style={styles.logoIcon}>
-                <Feather name="book-open" size={22} color="#FFFFFF" />
+                <Feather name="shopping-bag" size={22} color="#FFFFFF" />
               </View>
               <View>
-                <Text style={styles.appName}>Dukaan</Text>
+                <Text style={styles.appName}>SaleSync</Text>
                 <Text style={styles.tagline}>Digital Register</Text>
               </View>
             </View>

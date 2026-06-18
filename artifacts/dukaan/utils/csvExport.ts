@@ -1,4 +1,6 @@
 import { Platform } from "react-native";
+import * as FileSystemModule from "expo-file-system";
+import * as SharingModule from "expo-sharing";
 import type { Sale } from "@/context/StoreContext";
 
 function padDate(n: number) {
@@ -102,20 +104,32 @@ export async function downloadWeeklyCSV(sales: Sale[]): Promise<void> {
     return;
   }
 
-  const FileSystem = await import("expo-file-system");
-  const Sharing = await import("expo-sharing");
+  try {
+    const FS: any = (FileSystemModule as any).default || FileSystemModule;
+    const Sharing: any = (SharingModule as any).default || SharingModule;
 
-  const path = FileSystem.default.cacheDirectory + filename;
-  await FileSystem.default.writeAsStringAsync(path, csv, {
-    encoding: FileSystem.EncodingType.UTF8,
-  });
-
-  const canShare = await Sharing.default.isAvailableAsync();
-  if (canShare) {
-    await Sharing.default.shareAsync(path, {
-      mimeType: "text/csv",
-      dialogTitle: "Save weekly sales report",
-      UTI: "public.comma-separated-values-text",
+    const dir = FS.documentDirectory || FS.cacheDirectory;
+    if (!dir) {
+      throw new Error(`FS Error: Keys available: ${Object.keys(FS).join(", ")}`);
+    }
+    
+    const path = dir + filename;
+    
+    await FS.writeAsStringAsync(path, csv, {
+      encoding: "utf8",
     });
+
+    const canShare = await Sharing.isAvailableAsync();
+    if (canShare) {
+      await Sharing.shareAsync(path, {
+        mimeType: "text/csv",
+        dialogTitle: "Save weekly sales report",
+        UTI: "public.comma-separated-values-text",
+      });
+    } else {
+      throw new Error("Sharing is not supported on this device.");
+    }
+  } catch (error: any) {
+    throw new Error(error.message || "An unexpected error occurred during export.");
   }
 }
