@@ -188,7 +188,7 @@ export function WeeklyChart({ sales }: WeeklyChartProps) {
                 day.total > 0 ? MIN_BAR_H : 0
               );
               const isSelected = selected === i;
-              const isHighlighted = day.isToday || isSelected;
+              const isHighlighted = displayIdx === i;
 
               return (
                 <Pressable
