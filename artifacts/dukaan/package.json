@@ -4,6 +4,7 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
+    "eas-build-pre-install": "npm install -g pnpm@10.33.2",
     "dev": "pnpm exec expo start -c",
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
