@@ -27,7 +27,7 @@
       [
         "expo-router",
         {
-          "origin": "https://replit.com/"
+          "origin": "https://salesync.app/"
         }
       ],
       "expo-font",
