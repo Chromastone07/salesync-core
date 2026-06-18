@@ -17,7 +17,9 @@
     "ios": {
       "supportsTablet": false
     },
-    "android": {},
+    "android": {
+      "package": "com.chromastone07.salesync"
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
@@ -40,6 +42,11 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "2cabe7eb-003a-440f-a866-32c9ce34c4f0"
+      }
     }
   }
 }
