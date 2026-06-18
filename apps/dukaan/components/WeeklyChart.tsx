@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { G, Line, Rect, Svg, Text as SvgText } from "react-native-svg";
 
 import type { Sale } from "@/context/StoreContext";
 import { useColors } from "@/hooks/useColors";
@@ -35,8 +34,6 @@ interface WeeklyChartProps {
   sales: Sale[];
 }
 
-const BAR_W = 28;
-const BAR_GAP = 14;
 const CHART_H = 110;
 const MIN_BAR_H = 4;
 
@@ -63,8 +60,7 @@ export function WeeklyChart({ sales }: WeeklyChartProps) {
   const weekTotal = dayData.reduce((s, d) => s + d.total, 0);
   const maxVal = Math.max(...dayData.map((d) => d.total), 1);
 
-  const svgW = 7 * (BAR_W + BAR_GAP) - BAR_GAP;
-  const svgH = CHART_H + 20; // bars + day labels
+  const maxVal = Math.max(...dayData.map((d) => d.total), 1);
 
   const todayIdx = dayData.findIndex((d) => d.isToday);
   const displayIdx = selected !== null ? selected : todayIdx;
@@ -115,15 +111,48 @@ export function WeeklyChart({ sales }: WeeklyChartProps) {
     chartWrap: {
       alignItems: "center",
     },
-    noDataWrap: {
-      height: svgH,
-      alignItems: "center",
-      justifyContent: "center",
-    },
     noDataText: {
       fontSize: 13,
       fontFamily: "Inter_400Regular",
       color: colors.mutedForeground,
+    },
+    barsContainer: {
+      flexDirection: "row",
+      alignItems: "flex-end",
+      justifyContent: "space-between",
+      width: "100%",
+      height: CHART_H + 24, // extra space for labels
+      paddingHorizontal: 8,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      borderStyle: "dashed", // simulated grid line
+      paddingTop: 10,
+    },
+    barColumn: {
+      alignItems: "center",
+      justifyContent: "flex-end",
+      height: "100%",
+      flex: 1,
+    },
+    barArea: {
+      flex: 1,
+      justifyContent: "flex-end",
+      alignItems: "center",
+      width: "100%",
+    },
+    bar: {
+      width: 24, // bar width
+      borderRadius: 6,
+    },
+    barAmountLabel: {
+      fontSize: 10,
+      fontFamily: "Inter_700Bold",
+      color: colors.primary,
+      marginBottom: 4,
+    },
+    dayLabel: {
+      fontSize: 11,
+      marginTop: 6,
     },
   });
 
@@ -150,90 +179,55 @@ export function WeeklyChart({ sales }: WeeklyChartProps) {
 
       <View style={s.chartWrap}>
         {!hasAnyData ? (
-          <View style={s.noDataWrap}>
+          <View style={{ height: CHART_H + 24, alignItems: "center", justifyContent: "center" }}>
             <Text style={s.noDataText}>Record your first sale to see trends</Text>
           </View>
         ) : (
-          <Svg width={svgW} height={svgH}>
-            {/* grid line at top */}
-            <Line
-              x1={0}
-              y1={2}
-              x2={svgW}
-              y2={2}
-              stroke={colors.border}
-              strokeWidth={1}
-              strokeDasharray="4 3"
-            />
-
+          <View style={s.barsContainer}>
             {dayData.map((day, i) => {
               const barH = Math.max(
                 day.total > 0 ? (day.total / maxVal) * CHART_H : 0,
                 day.total > 0 ? MIN_BAR_H : 0
               );
-              const x = i * (BAR_W + BAR_GAP);
-              const y = CHART_H - barH;
               const isSelected = selected === i;
               const isHighlighted = day.isToday || isSelected;
 
               return (
-                <G key={i}>
-                  {/* tap target */}
-                  <Rect
-                    x={x}
-                    y={0}
-                    width={BAR_W}
-                    height={svgH}
-                    fill="transparent"
-                    onPress={() =>
-                      setSelected(isSelected && !day.isToday ? null : i)
-                    }
-                  />
-                  {/* bar */}
-                  <Rect
-                    x={x}
-                    y={y}
-                    width={BAR_W}
-                    height={barH}
-                    rx={6}
-                    ry={6}
-                    fill={
-                      isHighlighted
-                        ? colors.primary
-                        : colors.muted
-                    }
-                    opacity={isHighlighted ? 1 : 0.7}
-                  />
-                  {/* amount label above bar (only if selected or today and bar is tall enough) */}
-                  {isHighlighted && day.total > 0 && barH > 20 && (
-                    <SvgText
-                      x={x + BAR_W / 2}
-                      y={y - 5}
-                      textAnchor="middle"
-                      fill={colors.primary}
-                      fontSize={10}
-                      fontWeight="700"
-                    >
-                      {formatAmount(day.total)}
-                    </SvgText>
-                  )}
-                  {/* day label */}
-                  <SvgText
-                    x={x + BAR_W / 2}
-                    y={svgH - 2}
-                    textAnchor="middle"
-                    fill={
-                      isHighlighted ? colors.primary : colors.mutedForeground
-                    }
-                    fontSize={11}
-                    fontWeight={isHighlighted ? "700" : "400"}
+                <Pressable
+                  key={i}
+                  style={s.barColumn}
+                  onPress={() => setSelected(isSelected && !day.isToday ? null : i)}
+                >
+                  <View style={s.barArea}>
+                    {isHighlighted && day.total > 0 && barH > 20 && (
+                      <Text style={s.barAmountLabel}>{formatAmount(day.total)}</Text>
+                    )}
+                    <View
+                      style={[
+                        s.bar,
+                        {
+                          height: barH,
+                          backgroundColor: isHighlighted ? colors.primary : colors.muted,
+                          opacity: isHighlighted ? 1 : 0.7,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      s.dayLabel,
+                      {
+                        color: isHighlighted ? colors.primary : colors.mutedForeground,
+                        fontFamily: isHighlighted ? "Inter_700Bold" : "Inter_400Regular",
+                      },
+                    ]}
                   >
                     {day.label}
-                  </SvgText>
-                </G>
+                  </Text>
+                </Pressable>
               );
             })}
-          </Svg>
+          </View>
         )}
       </View>
     </View>
