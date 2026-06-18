@@ -10,14 +10,14 @@
     },
     "preview": {
       "distribution": "internal",
-      "node": "20.x",
+      "node": "20",
       "env": {
         "PNPM_VERSION": "10.33.2"
       }
     },
     "production": {
       "autoIncrement": true,
-      "node": "20.x",
+      "node": "20",
       "env": {
         "PNPM_VERSION": "10.33.2"
       }
