@@ -60,8 +60,6 @@ export function WeeklyChart({ sales }: WeeklyChartProps) {
   const weekTotal = dayData.reduce((s, d) => s + d.total, 0);
   const maxVal = Math.max(...dayData.map((d) => d.total), 1);
 
-  const maxVal = Math.max(...dayData.map((d) => d.total), 1);
-
   const todayIdx = dayData.findIndex((d) => d.isToday);
   const displayIdx = selected !== null ? selected : todayIdx;
   const displayDay = dayData[displayIdx];
