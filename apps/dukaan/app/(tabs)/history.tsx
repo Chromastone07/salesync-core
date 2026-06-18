@@ -58,10 +58,12 @@ function SaleCard({
   sale,
   onDelete,
   onViewReceipt,
+  onMarkAsPaid,
 }: {
   sale: Sale;
   onDelete: () => void;
   onViewReceipt: () => void;
+  onMarkAsPaid?: () => void;
 }) {
   const colors = useColors();
   const [expanded, setExpanded] = useState(true);
@@ -267,6 +269,14 @@ function SaleCard({
             >
               <Feather name="file-text" size={13} color={colors.foreground} />
             </Pressable>
+            {sale.status === "unpaid" && onMarkAsPaid && (
+              <Pressable
+                style={[s.expandBtn, { backgroundColor: "#16a34a", width: "auto", paddingHorizontal: 10, borderRadius: 14 }]}
+                onPress={onMarkAsPaid}
+              >
+                <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#fff" }}>Mark Paid</Text>
+              </Pressable>
+            )}
             <Pressable
               style={s.expandBtn}
               onPress={() => setExpanded((v) => !v)}
@@ -316,20 +326,28 @@ export default function HistoryScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { language } = useApp();
-  const { sales, deleteSale } = useStore();
+  const { sales, deleteSale, markSaleAsPaid } = useStore();
   const t = translations[language];
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<"paid" | "unpaid">("paid");
   const [receiptSale, setReceiptSale] = useState<Sale | null>(null);
 
   const filteredSales = useMemo(() => {
+    let filtered = sales;
+    if (activeTab === "paid") {
+      filtered = filtered.filter((s) => s.status !== "unpaid");
+    } else {
+      filtered = filtered.filter((s) => s.status === "unpaid");
+    }
+
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return sales;
-    return sales.filter((s) => {
+    if (!q) return filtered;
+    return filtered.filter((s) => {
       const nameMatch = s.customerName?.toLowerCase().includes(q);
       const phoneMatch = s.customerPhone?.toLowerCase().includes(q);
       return nameMatch || phoneMatch;
     });
-  }, [sales, searchQuery]);
+  }, [sales, searchQuery, activeTab]);
 
   const groups = groupSalesByDate(filteredSales);
 
@@ -342,6 +360,12 @@ export default function HistoryScreen() {
         onPress: () => deleteSale(sale.id),
       },
     ]);
+  };
+
+  const handleMarkAsPaid = async (sale: Sale) => {
+    await markSaleAsPaid(sale.id);
+    const updatedSale: Sale = { ...sale, status: "paid", paidAt: new Date().toISOString() };
+    setReceiptSale(updatedSale);
   };
 
   const styles = StyleSheet.create({
@@ -383,6 +407,34 @@ export default function HistoryScreen() {
     },
     searchClear: {
       padding: 2,
+    },
+    tabsContainer: {
+      flexDirection: "row",
+      marginHorizontal: 16,
+      marginTop: 8,
+      backgroundColor: colors.card,
+      borderRadius: colors.radius,
+      padding: 4,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    tabBtn: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: "center",
+      borderRadius: colors.radius - 4,
+    },
+    tabBtnActive: {
+      backgroundColor: colors.muted,
+    },
+    tabText: {
+      fontSize: 14,
+      fontFamily: "Inter_500Medium",
+      color: colors.mutedForeground,
+    },
+    tabTextActive: {
+      fontFamily: "Inter_600SemiBold",
+      color: colors.foreground,
     },
     noResultsText: {
       textAlign: "center",
@@ -478,6 +530,22 @@ export default function HistoryScreen() {
         </View>
       )}
 
+      {/* Tabs */}
+      <View style={styles.tabsContainer}>
+        <Pressable 
+          style={[styles.tabBtn, activeTab === "paid" && styles.tabBtnActive]}
+          onPress={() => setActiveTab("paid")}
+        >
+          <Text style={[styles.tabText, activeTab === "paid" && styles.tabTextActive]}>Paid</Text>
+        </Pressable>
+        <Pressable 
+          style={[styles.tabBtn, activeTab === "unpaid" && styles.tabBtnActive]}
+          onPress={() => setActiveTab("unpaid")}
+        >
+          <Text style={[styles.tabText, activeTab === "unpaid" && styles.tabTextActive]}>Yet to Pay</Text>
+        </Pressable>
+      </View>
+
       {sales.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIcon}>
@@ -513,6 +581,7 @@ export default function HistoryScreen() {
                     sale={sale}
                     onDelete={() => handleDelete(sale)}
                     onViewReceipt={() => setReceiptSale(sale)}
+                    onMarkAsPaid={sale.status === "unpaid" ? () => handleMarkAsPaid(sale) : undefined}
                   />
                 ))}
               </View>

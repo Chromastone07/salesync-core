@@ -32,12 +32,15 @@ export type Sale = {
   note: string;
   customerName?: string;
   customerPhone?: string;
+  status?: "paid" | "unpaid";
+  paidAt?: string;
 };
 
 type AddSaleOptions = {
   note?: string;
   customerName?: string;
   customerPhone?: string;
+  status?: "paid" | "unpaid";
 };
 
 type StoreState = {
@@ -55,6 +58,7 @@ type StoreState = {
   clearStore: () => Promise<void>;
   exportData: () => Promise<void>;
   importData: () => Promise<boolean>;
+  markSaleAsPaid: (id: string) => Promise<void>;
 };
 
 const StoreContext = createContext<StoreState | null>(null);
@@ -146,6 +150,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         note: options.note ?? "",
         customerName: options.customerName?.trim() || undefined,
         customerPhone: options.customerPhone?.trim() || undefined,
+        status: options.status ?? "paid",
       };
       await saveSales([sale, ...sales]);
       return sale;
@@ -156,6 +161,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const deleteSale = useCallback(
     async (id: string) => {
       await saveSales(sales.filter((s) => s.id !== id));
+    },
+    [sales, saveSales]
+  );
+
+  const markSaleAsPaid = useCallback(
+    async (id: string) => {
+      const updatedSales = sales.map((s) => {
+        if (s.id === id) {
+          return { ...s, status: "paid" as const, paidAt: new Date().toISOString() };
+        }
+        return s;
+      });
+      await saveSales(updatedSales);
     },
     [sales, saveSales]
   );
@@ -245,6 +263,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         clearStore,
         exportData,
         importData,
+        markSaleAsPaid,
       }}
     >
       {children}

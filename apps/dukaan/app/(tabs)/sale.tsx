@@ -46,6 +46,7 @@ export default function SaleScreen() {
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCustomer, setShowCustomer] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<"paid" | "unpaid">("paid");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [mode, setMode] = useState<"items" | "quick">("items");
@@ -115,6 +116,7 @@ export default function SaleScreen() {
     setCustomerName("");
     setCustomerPhone("");
     setShowCustomer(false);
+    setPaymentStatus("paid");
   };
 
   const handleScan = (rawBarcode: string) => {
@@ -189,11 +191,13 @@ export default function SaleScreen() {
     const sale = await addSale(lineItems, {
       customerName: customerName.trim() || undefined,
       customerPhone: customerPhone.trim() || undefined,
+      status: paymentStatus,
     });
     setCart([]);
     setCustomerName("");
     setCustomerPhone("");
     setShowCustomer(false);
+    setPaymentStatus("paid");
     setReceiptSale(sale);
   };
 
@@ -215,12 +219,14 @@ export default function SaleScreen() {
     const sale = await addSale([lineItem], {
       customerName: customerName.trim() || undefined,
       customerPhone: customerPhone.trim() || undefined,
+      status: paymentStatus,
     });
     
     setQuickAmount("");
     setCustomerName("");
     setCustomerPhone("");
     setShowCustomer(false);
+    setPaymentStatus("paid");
     setReceiptSale(sale);
   };
 
@@ -521,6 +527,43 @@ export default function SaleScreen() {
       padding: 40,
       marginTop: 20,
     },
+    paymentToggle: {
+      flexDirection: "row",
+      backgroundColor: colors.muted,
+      borderRadius: colors.radius,
+      padding: 4,
+      marginTop: 4,
+    },
+    payBtn: {
+      flex: 1,
+      flexDirection: "row",
+      gap: 6,
+      paddingVertical: 10,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: colors.radius - 4,
+    },
+    payBtnActive: {
+      backgroundColor: "#dcfce7",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    payBtnUnpaidActive: {
+      backgroundColor: "#ffedd5",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    payText: {
+      fontSize: 14,
+      fontFamily: "Inter_600SemiBold",
+      color: colors.mutedForeground,
+    },
     quickAmountInput: {
       fontSize: 48,
       fontFamily: "Inter_700Bold",
@@ -741,6 +784,28 @@ export default function SaleScreen() {
                 </View>
               </View>
             )}
+            
+            {/* Payment Status Toggle */}
+            <View style={s.paymentToggle}>
+              <Pressable 
+                style={[s.payBtn, paymentStatus === "paid" && s.payBtnActive]}
+                onPress={() => { setPaymentStatus("paid"); Haptics.selectionAsync(); }}
+              >
+                <Feather name="check-circle" size={14} color={paymentStatus === "paid" ? "#16a34a" : colors.mutedForeground} />
+                <Text style={[s.payText, paymentStatus === "paid" && { color: "#16a34a" }]}>Paid</Text>
+              </Pressable>
+              <Pressable 
+                style={[s.payBtn, paymentStatus === "unpaid" && s.payBtnUnpaidActive]}
+                onPress={() => { 
+                  setPaymentStatus("unpaid"); 
+                  setShowCustomer(true); // Force open customer section
+                  Haptics.selectionAsync(); 
+                }}
+              >
+                <Feather name="clock" size={14} color={paymentStatus === "unpaid" ? "#ea580c" : colors.mutedForeground} />
+                <Text style={[s.payText, paymentStatus === "unpaid" && { color: "#ea580c" }]}>Pay Later</Text>
+              </Pressable>
+            </View>
           </>
         )}
 
