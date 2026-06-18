@@ -10,12 +10,14 @@
     },
     "preview": {
       "distribution": "internal",
+      "projectRoot": "./artifacts/dukaan",
       "env": {
         "PNPM_VERSION": "10.33.2"
       }
     },
     "production": {
       "autoIncrement": true,
+      "projectRoot": "./artifacts/dukaan",
       "env": {
         "PNPM_VERSION": "10.33.2"
       }
