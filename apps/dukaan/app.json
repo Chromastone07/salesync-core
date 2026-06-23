@@ -5,12 +5,12 @@
     "slug": "workspace",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/icon.jpg",
     "scheme": "salesync",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/icon.png",
+      "image": "./assets/images/icon.jpg",
       "resizeMode": "contain",
       "backgroundColor": "#FFFBF5"
     },
@@ -18,10 +18,14 @@
       "supportsTablet": false
     },
     "android": {
-      "package": "com.chromastone07.salesync"
+      "package": "com.chromastone07.salesync",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/icon.jpg"
     },
     "plugins": [
       [
@@ -44,9 +48,13 @@
       "reactCompiler": true
     },
     "extra": {
+      "router": {
+        "origin": "https://salesync.app/"
+      },
       "eas": {
-        "projectId": "2cabe7eb-003a-440f-a866-32c9ce34c4f0"
+        "projectId": "0a51c30e-d9ef-44f0-bb7c-54295a07cfb5"
       }
-    }
+    },
+    "owner": "chromastone07"
   }
 }
