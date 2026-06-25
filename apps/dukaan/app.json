@@ -8,7 +8,7 @@
     "icon": "./assets/images/icon.jpg",
     "scheme": "salesync",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/icon.jpg",
       "resizeMode": "contain",
