@@ -24,6 +24,7 @@ import {
   type Language,
   translations,
 } from "@/constants/translations";
+import { useBackupReminder } from "@/hooks/useBackupReminder";
 
 export default function SettingsScreen() {
   const colors = useColors();
@@ -42,6 +43,7 @@ export default function SettingsScreen() {
   const [editingShop, setEditingShop] = useState(false);
   const [shopInput, setShopInput] = useState(shopName);
   const [showDangerZone, setShowDangerZone] = useState(false);
+  const { frequency, setFrequency } = useBackupReminder();
 
   const businessLabel = BUSINESS_TYPES.find((b) => b.type === businessType);
   const businessName =
@@ -385,13 +387,37 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Data & Backup</Text>
+          
           <View style={[styles.row, styles.rowFirst]}>
+            <View style={styles.rowIcon}>
+              <Feather name="bell" size={16} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>{t.backupReminders}</Text>
+              <Text style={styles.rowValue}>
+                {frequency === "off" ? t.backupFrequencyOff :
+                 frequency === "daily" ? t.backupFrequencyDaily :
+                 frequency === "weekly" ? t.backupFrequencyWeekly :
+                 t.backupFrequencyMonthly}
+              </Text>
+            </View>
+            <Pressable style={styles.saveBtn} onPress={() => {
+              const next = frequency === "off" ? "daily" :
+                           frequency === "daily" ? "weekly" :
+                           frequency === "weekly" ? "monthly" : "off";
+              setFrequency(next);
+            }}>
+              <Text style={styles.saveBtnText}>Change</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.row}>
             <View style={styles.rowIcon}>
               <Feather name="upload-cloud" size={16} color={colors.primary} />
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, paddingRight: 8 }}>
               <Text style={styles.rowLabel}>Backup Data</Text>
-              <Text style={styles.rowValue}>Save your data to a file</Text>
+              <Text style={[styles.rowValue, { color: colors.primary, fontSize: 11 }]}>{t.selectGoogleDrive}</Text>
             </View>
             <Pressable style={styles.saveBtn} onPress={exportData}>
               <Text style={styles.saveBtnText}>Export</Text>

@@ -11,7 +11,7 @@ type Props = {
   barcode: string;
   onClose: () => void;
   onQuickSale: (price: number) => void;
-  onAddCatalog: (name: string, price: number) => void;
+  onAddCatalog: (name: string, price: number, stock?: number) => void;
 };
 
 export function UnknownBarcodeModal({ visible, barcode, onClose, onQuickSale, onAddCatalog }: Props) {
@@ -22,6 +22,7 @@ export function UnknownBarcodeModal({ visible, barcode, onClose, onQuickSale, on
   const [mode, setMode] = useState<"choose" | "form">("choose");
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -29,6 +30,7 @@ export function UnknownBarcodeModal({ visible, barcode, onClose, onQuickSale, on
       setMode("choose");
       setName("");
       setPrice("");
+      setStock("");
       setLoading(false);
     }
   }, [visible, barcode]);
@@ -67,8 +69,9 @@ export function UnknownBarcodeModal({ visible, barcode, onClose, onQuickSale, on
 
   const handleAddCatalog = () => {
     const p = parseFloat(price);
+    const s = parseFloat(stock);
     if (name.trim() && !isNaN(p) && p > 0) {
-      onAddCatalog(name.trim(), p);
+      onAddCatalog(name.trim(), p, isNaN(s) ? undefined : s);
     }
   };
 
@@ -136,6 +139,18 @@ export function UnknownBarcodeModal({ visible, barcode, onClose, onQuickSale, on
                       value={price}
                       onChangeText={setPrice}
                       autoFocus={name.length > 0}
+                    />
+                  </View>
+
+                  <View style={s.inputGroup}>
+                    <Text style={[s.label, { color: colors.foreground }]}>Stock (Optional)</Text>
+                    <TextInput
+                      style={[s.input, { borderColor: colors.border, color: colors.foreground }]}
+                      placeholder="e.g. 50"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="numeric"
+                      value={stock}
+                      onChangeText={setStock}
                     />
                   </View>
 

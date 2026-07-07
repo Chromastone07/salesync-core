@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useMemo, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -15,9 +15,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
 import { useStore } from "@/context/StoreContext";
 import type { Sale } from "@/context/StoreContext";
-import { useColors } from "@/hooks/useColors";
-import { translations } from "@/constants/translations";
+import {
+  BUSINESS_TYPES,
+  LANGUAGES,
+  type Language,
+  translations,
+} from "@/constants/translations";
+import { BannerAd } from "@/components/BannerAd";
 import { WeeklyChart } from "@/components/WeeklyChart";
+import { useColors } from "@/hooks/useColors";
 
 function formatTime(dateStr: string) {
   const d = new Date(dateStr);
@@ -124,20 +130,47 @@ function SaleCard({ sale }: { sale: Sale }) {
           </View>
         ))}
       </View>
+      <BannerAd />
     </View>
   );
 }
+
+type Timeframe = "today" | "month" | "all";
 
 export default function DashboardScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { language, shopName } = useApp();
-  const { sales, getTodaySales, getTodayTotal } = useStore();
+  const { sales, getTodaySales } = useStore();
   const t = translations[language];
 
-  const todaySales = getTodaySales();
-  const todayTotal = getTodayTotal();
+  const [timeframe, setTimeframe] = useState<Timeframe>("today");
+
+  const today = new Date();
+  
+  const filteredData = useMemo(() => {
+    if (timeframe === "today") return getTodaySales();
+    
+    if (timeframe === "month") {
+      return sales.filter((s) => {
+        const d = new Date(s.date);
+        return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+      });
+    }
+    
+    return sales;
+  }, [sales, timeframe, getTodaySales]);
+
+  const filteredTotal = useMemo(() => {
+    return filteredData.reduce((sum, s) => sum + s.total, 0);
+  }, [filteredData]);
+
+  const cardLabel = timeframe === "today" 
+    ? t.todaySales 
+    : timeframe === "month" 
+      ? t.thisMonthSales 
+      : t.lifetimeSales;
 
   const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
@@ -176,6 +209,33 @@ export default function DashboardScreen() {
     newSaleBtnText: {
       fontSize: 13,
       fontFamily: "Inter_600SemiBold",
+      color: "#FFFFFF",
+    },
+    segmentContainer: {
+      flexDirection: "row",
+      marginHorizontal: 20,
+      marginBottom: 16,
+      backgroundColor: colors.card,
+      borderRadius: 8,
+      padding: 4,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    segmentBtn: {
+      flex: 1,
+      paddingVertical: 8,
+      alignItems: "center",
+      borderRadius: 6,
+    },
+    segmentBtnActive: {
+      backgroundColor: colors.primary,
+    },
+    segmentText: {
+      fontSize: 13,
+      fontFamily: "Inter_500Medium",
+      color: colors.foreground,
+    },
+    segmentTextActive: {
       color: "#FFFFFF",
     },
     statsCard: {
@@ -280,7 +340,35 @@ export default function DashboardScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        {/* Today's revenue card */}
+        {/* Timeframe Toggle */}
+        <View style={styles.segmentContainer}>
+          <Pressable 
+            style={[styles.segmentBtn, timeframe === "today" && styles.segmentBtnActive]}
+            onPress={() => setTimeframe("today")}
+          >
+            <Text style={[styles.segmentText, timeframe === "today" && styles.segmentTextActive]}>
+              {t.today}
+            </Text>
+          </Pressable>
+          <Pressable 
+            style={[styles.segmentBtn, timeframe === "month" && styles.segmentBtnActive]}
+            onPress={() => setTimeframe("month")}
+          >
+            <Text style={[styles.segmentText, timeframe === "month" && styles.segmentTextActive]}>
+              {t.thisMonth}
+            </Text>
+          </Pressable>
+          <Pressable 
+            style={[styles.segmentBtn, timeframe === "all" && styles.segmentBtnActive]}
+            onPress={() => setTimeframe("all")}
+          >
+            <Text style={[styles.segmentText, timeframe === "all" && styles.segmentTextActive]}>
+              {t.allTime}
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Dynamic revenue card */}
         <View style={styles.statsCard}>
           <LinearGradient
             colors={["#F97316", "#EA580C"]}
@@ -288,12 +376,12 @@ export default function DashboardScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.statsGradient}
           >
-            <Text style={styles.statsLabel}>{t.todaySales}</Text>
-            <Text style={styles.statsAmount}>{formatCurrency(todayTotal)}</Text>
+            <Text style={styles.statsLabel}>{cardLabel}</Text>
+            <Text style={styles.statsAmount}>{formatCurrency(filteredTotal)}</Text>
             <View style={styles.statsRow}>
               <Feather name="shopping-bag" size={12} color="#FFFFFF" />
               <Text style={styles.statsCount}>
-                {todaySales.length} {t.salesCount}
+                {filteredData.length} {t.salesCount}
               </Text>
             </View>
           </LinearGradient>
@@ -308,7 +396,7 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.salesList}>
-          {todaySales.length === 0 ? (
+          {filteredData.length === 0 ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
                 <Feather name="sunrise" size={24} color={colors.mutedForeground} />
@@ -317,7 +405,7 @@ export default function DashboardScreen() {
               <Text style={styles.emptyText}>{t.tapToAdd}</Text>
             </View>
           ) : (
-            todaySales.map((sale) => <SaleCard key={sale.id} sale={sale} />)
+            filteredData.slice(0, 30).map((sale) => <SaleCard key={sale.id} sale={sale} />)
           )}
         </View>
 

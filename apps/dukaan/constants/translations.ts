@@ -94,6 +94,16 @@ type T = {
   addToCatalog: string;
   quickSaleOnly: string;
   fetchingDetails: string;
+  thisMonth: string;
+  allTime: string;
+  thisMonthSales: string;
+  lifetimeSales: string;
+  backupReminders: string;
+  backupFrequencyOff: string;
+  backupFrequencyDaily: string;
+  backupFrequencyWeekly: string;
+  backupFrequencyMonthly: string;
+  selectGoogleDrive: string;
 };
 
 export const translations: Record<Language, T> = {
@@ -162,6 +172,16 @@ export const translations: Record<Language, T> = {
     addToCatalog: "Add to Catalog",
     quickSaleOnly: "Quick Sale Only",
     fetchingDetails: "Fetching details...",
+    thisMonth: "This Month",
+    allTime: "All Time",
+    thisMonthSales: "This Month's Sales",
+    lifetimeSales: "Lifetime Sales",
+    backupReminders: "Backup Reminders",
+    backupFrequencyOff: "Off",
+    backupFrequencyDaily: "Daily",
+    backupFrequencyWeekly: "Weekly",
+    backupFrequencyMonthly: "Monthly",
+    selectGoogleDrive: "Select Google Drive to overwrite backup file.",
   },
   hi: {
     selectLanguage: "भाषा चुनें",
@@ -228,6 +248,16 @@ export const translations: Record<Language, T> = {
     addToCatalog: "कैटलॉग में जोड़ें",
     quickSaleOnly: "केवल तुरंत बिक्री",
     fetchingDetails: "जानकारी खोज रहे हैं...",
+    thisMonth: "इस महीने",
+    allTime: "शुरुआत से",
+    thisMonthSales: "इस महीने की बिक्री",
+    lifetimeSales: "कुल बिक्री (शुरुआत से)",
+    backupReminders: "बैकअप रिमाइंडर",
+    backupFrequencyOff: "बंद",
+    backupFrequencyDaily: "रोज़",
+    backupFrequencyWeekly: "साप्ताहिक",
+    backupFrequencyMonthly: "मासिक",
+    selectGoogleDrive: "बैकअप फ़ाइल को सहेजने के लिए Google Drive चुनें।",
   },
   mr: {
     selectLanguage: "भाषा निवडा",
@@ -294,6 +324,16 @@ export const translations: Record<Language, T> = {
     addToCatalog: "कॅटलॉगमध्ये जोडा",
     quickSaleOnly: "फक्त जलद विक्री",
     fetchingDetails: "माहिती शोधत आहे...",
+    thisMonth: "या महिन्यात",
+    allTime: "सुरुवातीपासून",
+    thisMonthSales: "या महिन्याची विक्री",
+    lifetimeSales: "एकूण विक्री (सुरुवातीपासून)",
+    backupReminders: "बॅकअप रिमाइंडर",
+    backupFrequencyOff: "बंद",
+    backupFrequencyDaily: "रोज",
+    backupFrequencyWeekly: "साप्ताहिक",
+    backupFrequencyMonthly: "मासिक",
+    selectGoogleDrive: "बॅकअप सेव्ह करण्यासाठी Google Drive निवडा.",
   },
 };
 

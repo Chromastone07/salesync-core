@@ -18,6 +18,7 @@ import type { Sale } from "@/context/StoreContext";
 import { useColors } from "@/hooks/useColors";
 import { translations } from "@/constants/translations";
 import { ReceiptModal } from "@/components/ReceiptModal";
+import { BannerAd } from "@/components/BannerAd";
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
@@ -613,6 +614,7 @@ export default function HistoryScreen() {
         sale={receiptSale}
         onClose={() => setReceiptSale(null)}
       />
+      <BannerAd />
     </View>
   );
 }

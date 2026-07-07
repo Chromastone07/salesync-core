@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "0a51c30e-d9ef-44f0-bb7c-54295a07cfb5"
+      }
+    },
+    "android": {
+      "package": "com.chromastone.salesync"
+    }
+  }
+}

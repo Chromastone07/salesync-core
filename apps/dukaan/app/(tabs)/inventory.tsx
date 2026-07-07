@@ -22,6 +22,8 @@ import { useStore } from "@/context/StoreContext";
 import type { InventoryItem } from "@/context/StoreContext";
 import { useColors } from "@/hooks/useColors";
 import { translations } from "@/constants/translations";
+import * as DocumentPicker from "expo-document-picker";
+import { downloadCSVTemplate, parseInventoryCSV } from "@/utils/csvUtils";
 
 const UNITS = ["kg", "liter", "piece", "dozen", "gram", "meter", "pack", "bottle"];
 
@@ -31,27 +33,51 @@ type FormState = {
   unit: string;
   rate: string;
   isService: boolean;
+  stock: string;
 };
 
 const emptyForm = (): FormState => ({
   label: "",
   localLabel: "",
-  unit: "kg",
+  unit: "piece",
   rate: "",
   isService: false,
+  stock: "",
 });
 
 export default function InventoryScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { language } = useApp();
-  const { inventoryItems, addInventoryItem, updateInventoryItem, deleteInventoryItem } = useStore();
+  const { inventoryItems, addInventoryItem, updateInventoryItem, deleteInventoryItem, addInventoryItems } = useStore();
   const t = translations[language];
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [isSaving, setIsSaving] = useState(false);
+
+  const handleImportCSV = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["text/csv", "text/comma-separated-values", "application/csv", "*/*"],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || !result.assets || result.assets.length === 0) return;
+      
+      const fileUri = result.assets[0].uri;
+      const parsedItems = await parseInventoryCSV(fileUri);
+      
+      if (parsedItems.length > 0) {
+        await addInventoryItems(parsedItems);
+        Alert.alert("Success", `Imported ${parsedItems.length} items successfully!`);
+      } else {
+        Alert.alert("Error", "No valid items found in CSV.");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to parse CSV file. Make sure it follows the template.");
+    }
+  };
 
   const openAdd = () => {
     setEditingId(null);
@@ -67,6 +93,7 @@ export default function InventoryScreen() {
       unit: item.unit,
       rate: item.rate.toString(),
       isService: item.isService,
+      stock: item.stock !== undefined ? item.stock.toString() : "",
     });
     setModalVisible(true);
   };
@@ -82,6 +109,7 @@ export default function InventoryScreen() {
         unit: form.unit,
         rate: parseFloat(form.rate) || 0,
         isService: form.isService,
+        stock: form.isService ? undefined : (form.stock ? parseFloat(form.stock) : undefined),
       };
       if (editingId) {
         await updateInventoryItem(editingId, data);
@@ -125,7 +153,7 @@ export default function InventoryScreen() {
       fontFamily: "Inter_700Bold",
       color: colors.foreground,
     },
-    addBtn: {
+    actionBtn: {
       width: 36,
       height: 36,
       borderRadius: 18,
@@ -179,6 +207,20 @@ export default function InventoryScreen() {
       borderRadius: 4,
       overflow: "hidden",
     },
+    stockTag: {
+      fontSize: 10,
+      fontFamily: "Inter_500Medium",
+      color: "#059669",
+      backgroundColor: "#D1FAE5",
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+      overflow: "hidden",
+    },
+    stockTagLow: {
+      color: "#DC2626",
+      backgroundColor: "#FEE2E2",
+    },
     itemRate: {
       fontSize: 16,
       fontFamily: "Inter_700Bold",
@@ -219,6 +261,21 @@ export default function InventoryScreen() {
       fontFamily: "Inter_400Regular",
       color: colors.mutedForeground,
       textAlign: "center",
+      marginBottom: 20,
+    },
+    templateBtn: {
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: colors.radius,
+      backgroundColor: colors.primary,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    templateBtnText: {
+      color: "#FFFFFF",
+      fontSize: 14,
+      fontFamily: "Inter_500Medium",
     },
     listBottom: { height: 160 },
     // Modal styles
@@ -332,9 +389,17 @@ export default function InventoryScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t.inventory}</Text>
-        <Pressable style={styles.addBtn} onPress={openAdd}>
-          <Feather name="plus" size={20} color="#FFFFFF" />
-        </Pressable>
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <Pressable style={styles.actionBtn} onPress={downloadCSVTemplate}>
+            <Feather name="download" size={18} color="#FFFFFF" />
+          </Pressable>
+          <Pressable style={styles.actionBtn} onPress={handleImportCSV}>
+            <Feather name="upload" size={18} color="#FFFFFF" />
+          </Pressable>
+          <Pressable style={styles.actionBtn} onPress={openAdd}>
+            <Feather name="plus" size={18} color="#FFFFFF" />
+          </Pressable>
+        </View>
       </View>
 
       {inventoryItems.length === 0 ? (
@@ -344,6 +409,10 @@ export default function InventoryScreen() {
           </View>
           <Text style={styles.emptyTitle}>{t.noItems}</Text>
           <Text style={styles.emptyText}>{t.addFirstItem}</Text>
+          <Pressable style={styles.templateBtn} onPress={downloadCSVTemplate}>
+            <Feather name="download" size={16} color="#FFFFFF" />
+            <Text style={styles.templateBtnText}>Download CSV Template</Text>
+          </Pressable>
         </View>
       ) : (
         <FlatList
@@ -368,6 +437,11 @@ export default function InventoryScreen() {
                   <Text style={styles.itemUnit}>{item.unit}</Text>
                   {item.isService && (
                     <Text style={styles.serviceTag}>Service</Text>
+                  )}
+                  {!item.isService && item.stock !== undefined && (
+                    <Text style={[styles.stockTag, item.stock <= 5 && styles.stockTagLow]}>
+                      Stock: {item.stock}
+                    </Text>
                   )}
                 </View>
               </View>
@@ -449,6 +523,20 @@ export default function InventoryScreen() {
                   placeholderTextColor={colors.mutedForeground}
                   keyboardType="numeric"
                 />
+
+                {!form.isService && (
+                  <>
+                    <Text style={styles.fieldLabel}>Stock Quantity (Optional)</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={form.stock}
+                      onChangeText={(v) => setForm((f) => ({ ...f, stock: v }))}
+                      placeholder="e.g. 50"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="numeric"
+                    />
+                  </>
+                )}
 
                 <Text style={styles.fieldLabel}>{t.unit}</Text>
                 <View style={styles.unitRow}>

@@ -1,18 +1,20 @@
+import { brandConfig } from "../brand.config";
+
 const colors = {
   light: {
     text: "#1C1917",
-    tint: "#F97316",
+    tint: brandConfig.primaryColor,
     background: "#FFFBF5",
     foreground: "#1C1917",
     card: "#FFFFFF",
     cardForeground: "#1C1917",
-    primary: "#F97316",
+    primary: brandConfig.primaryColor,
     primaryForeground: "#FFFFFF",
     secondary: "#FFF7ED",
     secondaryForeground: "#7C2D12",
     muted: "#F5F5F0",
     mutedForeground: "#78716C",
-    accent: "#10B981",
+    accent: brandConfig.accentColor,
     accentForeground: "#FFFFFF",
     destructive: "#EF4444",
     destructiveForeground: "#FFFFFF",

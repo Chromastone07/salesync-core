@@ -3,6 +3,18 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import * as DocumentPicker from "expo-document-picker";
+import Constants from "expo-constants";
+
+const isExpoGo = Constants.appOwnership === "expo";
+let usePostHog: any = null;
+
+if (!isExpoGo) {
+  try {
+    usePostHog = require("posthog-react-native").usePostHog;
+  } catch (e) {
+    console.warn("Failed to load posthog usePostHog", e);
+  }
+}
 
 export type InventoryItem = {
   id: string;
@@ -12,6 +24,7 @@ export type InventoryItem = {
   rate: number;
   isService: boolean;
   barcode?: string;
+  stock?: number;
 };
 
 export type SaleLineItem = {
@@ -50,6 +63,7 @@ type StoreState = {
   addInventoryItem: (item: Omit<InventoryItem, "id">) => Promise<InventoryItem>;
   addInventoryItems: (items: Omit<InventoryItem, "id">[]) => Promise<void>;
   updateInventoryItem: (id: string, updates: Partial<Omit<InventoryItem, "id">>) => Promise<void>;
+  updateStock: (id: string, newStock: number) => Promise<void>;
   deleteInventoryItem: (id: string) => Promise<void>;
   addSale: (items: SaleLineItem[], options?: AddSaleOptions) => Promise<Sale>;
   deleteSale: (id: string) => Promise<void>;
@@ -76,6 +90,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const posthog = usePostHog ? usePostHog() : null;
 
   useEffect(() => {
     async function load() {
@@ -132,6 +147,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [inventoryItems, saveInventory]
   );
 
+  const updateStock = useCallback(
+    async (id: string, newStock: number) => {
+      const updated = inventoryItems.map((i) =>
+        i.id === id ? { ...i, stock: newStock } : i
+      );
+      await saveInventory(updated);
+    },
+    [inventoryItems, saveInventory]
+  );
+
   const deleteInventoryItem = useCallback(
     async (id: string) => {
       await saveInventory(inventoryItems.filter((i) => i.id !== id));
@@ -153,9 +178,41 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         status: options.status ?? "paid",
       };
       await saveSales([sale, ...sales]);
+      
+      // Decrement stock for non-service items
+      const newInventory = [...inventoryItems];
+      let inventoryChanged = false;
+      
+      for (const saleItem of items) {
+        if (!saleItem.is_service) {
+          const invIndex = newInventory.findIndex(i => i.id === saleItem.item_id);
+          if (invIndex >= 0 && typeof newInventory[invIndex].stock === 'number') {
+            newInventory[invIndex] = {
+              ...newInventory[invIndex],
+              stock: (newInventory[invIndex].stock || 0) - saleItem.quantity
+            };
+            inventoryChanged = true;
+          }
+        }
+      }
+      
+      if (inventoryChanged) {
+        await saveInventory(newInventory);
+      }
+
+      try {
+        posthog?.capture("sale_completed", {
+          total,
+          itemCount: items.length,
+          status: options.status ?? "paid",
+        });
+      } catch (e) {
+        // ignore analytics error
+      }
+      
       return sale;
     },
-    [sales, saveSales]
+    [sales, saveSales, inventoryItems, saveInventory, posthog]
   );
 
   const deleteSale = useCallback(
@@ -255,6 +312,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         addInventoryItem,
         addInventoryItems,
         updateInventoryItem,
+        updateStock,
         deleteInventoryItem,
         addSale,
         deleteSale,

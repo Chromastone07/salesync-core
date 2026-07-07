@@ -51,6 +51,7 @@ export default function SaleScreen() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [mode, setMode] = useState<"items" | "quick">("items");
   const [quickAmount, setQuickAmount] = useState("");
+  const [quickLabel, setQuickLabel] = useState("");
   const [showScanner, setShowScanner] = useState(false);
   const [unknownBarcode, setUnknownBarcode] = useState("");
   const [scannedItemId, setScannedItemId] = useState<string | null>(null);
@@ -72,8 +73,16 @@ export default function SaleScreen() {
   const getCartItem = (itemId: string) => cart.find((c) => c.itemId === itemId);
 
   const increment = (item: (typeof inventoryItems)[0]) => {
-    Haptics.selectionAsync();
     const existing = cart.find((c) => c.itemId === item.id);
+    const currentQty = existing ? existing.quantity : 0;
+    
+    if (!item.isService && item.stock !== undefined && currentQty >= item.stock) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert("Stock Limit Reached", `You only have ${item.stock} unit(s) of this item in stock.`);
+      return;
+    }
+
+    Haptics.selectionAsync();
     if (existing) {
       setCart((prev) =>
         prev.map((c) =>
@@ -163,14 +172,15 @@ export default function SaleScreen() {
     setUnknownBarcode("");
   };
 
-  const handleUnknownAddCatalog = async (name: string, price: number) => {
+  const handleUnknownAddCatalog = async (name: string, price: number, stock?: number) => {
     const newItem = await addInventoryItem({
       label: name,
       localLabel: name,
-      unit: "pc",
+      unit: "piece",
       rate: price,
       isService: false,
       barcode: unknownBarcode,
+      stock: stock,
     });
     increment(newItem);
     setUnknownBarcode("");
@@ -184,6 +194,7 @@ export default function SaleScreen() {
     });
     setCart([]);
     setQuickAmount("");
+    setQuickLabel("");
     setCustomerName("");
     setCustomerPhone("");
     setShowCustomer(false);
@@ -225,7 +236,7 @@ export default function SaleScreen() {
     
     const lineItem: SaleLineItem = {
       item_id: "quick-sale",
-      label: t.quickSale ?? "Quick Sale",
+      label: quickLabel.trim() || (t.quickSale ?? "Quick Sale"),
       quantity: 1,
       unit: "total",
       rate: amt,
@@ -597,6 +608,17 @@ export default function SaleScreen() {
       color: colors.mutedForeground,
       marginTop: 16,
     },
+    quickLabelInput: {
+      marginTop: 32,
+      width: "80%",
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      paddingVertical: 8,
+      fontSize: 16,
+      fontFamily: "Inter_400Regular",
+      color: colors.foreground,
+      textAlign: "center",
+    },
   });
 
   return (
@@ -651,6 +673,15 @@ export default function SaleScreen() {
               autoFocus
             />
             <Text style={s.quickAmountLabel}>{t.enterAmount ?? "Enter Amount"}</Text>
+            
+            <TextInput
+              style={s.quickLabelInput}
+              value={quickLabel}
+              onChangeText={setQuickLabel}
+              placeholder="What did you sell? (Optional)"
+              placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="sentences"
+            />
           </View>
         ) : inventoryItems.length === 0 ? (
           <View style={s.empty}>
