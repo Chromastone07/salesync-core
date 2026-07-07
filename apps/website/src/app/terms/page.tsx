@@ -29,7 +29,7 @@ export default function TermsOfService() {
             </button>
             <Link href="/" className="btn-outline" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <ArrowLeft size={20} />
-              Back to Home
+              Back
             </Link>
           </div>
         </div>

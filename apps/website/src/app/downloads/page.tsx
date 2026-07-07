@@ -29,7 +29,7 @@ export default function Downloads() {
             </button>
             <Link href="/" className="btn-outline" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <ArrowLeft size={20} />
-              Back to Home
+              Back
             </Link>
           </div>
         </div>
@@ -60,7 +60,7 @@ export default function Downloads() {
               </ul>
             </div>
             
-            <a href="/downloads/SaleSync-v1.0.0.apk" download className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px 32px", fontSize: "1.1rem" }}>
+            <a href="/downloads/salesync-v1.0.0.apk" download className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px 32px", fontSize: "1.1rem" }}>
               <Download size={24} />
               Download APK
             </a>
