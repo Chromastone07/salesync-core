@@ -60,7 +60,7 @@ export default function Downloads() {
               </ul>
             </div>
             
-            <a href="/downloads/salesync-v1.0.0.apk" download className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px 32px", fontSize: "1.1rem" }}>
+            <a href="https://github.com/Chromastone07/salesync-core/releases/download/v1.0.0/salesync-real.apk" target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px 32px", fontSize: "1.1rem" }}>
               <Download size={24} />
               Download APK
             </a>
