@@ -17,6 +17,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider, useApp } from "@/context/AppContext";
 import { StoreProvider } from "@/context/StoreContext";
+import { AppLockGuard } from "@/components/AppLockGuard";
 import { brandConfig } from "@/brand.config";
 import Constants from "expo-constants";
 
@@ -68,9 +69,11 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <KeyboardProvider>
             <AppProvider>
-              <StoreProvider>
-                <AppNavigator />
-              </StoreProvider>
+              <AppLockGuard>
+                <StoreProvider>
+                  <AppNavigator />
+                </StoreProvider>
+              </AppLockGuard>
             </AppProvider>
           </KeyboardProvider>
         </GestureHandlerRootView>

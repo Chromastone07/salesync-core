@@ -1,0 +1,9 @@
+# Ignore large files that are not needed for EAS builds
+apps/website/public/downloads/*.apk
+apps/website/.next/
+apps/dukaan/android/
+apps/dukaan/ios/
+.local/
+apps/dukaan/eas_log.txt
+apps/dukaan/eas-log2.txt
+eas_log.txt

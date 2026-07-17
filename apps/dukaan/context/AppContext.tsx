@@ -7,11 +7,13 @@ type AppState = {
   businessType: BusinessType;
   shopName: string;
   onboardingComplete: boolean;
+  isAppLockEnabled: boolean;
   isLoading: boolean;
   setLanguage: (lang: Language) => Promise<void>;
   setBusinessType: (bt: BusinessType) => Promise<void>;
   setShopName: (name: string) => Promise<void>;
   completeOnboarding: () => Promise<void>;
+  setAppLockEnabled: (enabled: boolean) => Promise<void>;
   resetApp: () => Promise<void>;
 };
 
@@ -22,6 +24,7 @@ const STORAGE_KEYS = {
   BUSINESS_TYPE: "app_business_type",
   SHOP_NAME: "app_shop_name",
   ONBOARDING: "app_onboarding_complete",
+  APP_LOCK: "app_lock_enabled",
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -29,21 +32,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [businessType, setBusinessTypeState] = useState<BusinessType>("kirana");
   const [shopName, setShopNameState] = useState<string>("");
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
+  const [isAppLockEnabled, setIsAppLockEnabledState] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
     async function loadState() {
       try {
-        const [lang, bt, sn, ob] = await Promise.all([
+        const [lang, bt, sn, ob, lock] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.LANGUAGE),
           AsyncStorage.getItem(STORAGE_KEYS.BUSINESS_TYPE),
           AsyncStorage.getItem(STORAGE_KEYS.SHOP_NAME),
           AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING),
+          AsyncStorage.getItem(STORAGE_KEYS.APP_LOCK),
         ]);
         if (lang) setLanguageState(lang as Language);
         if (bt) setBusinessTypeState(bt as BusinessType);
         if (sn) setShopNameState(sn);
         if (ob === "true") setOnboardingComplete(true);
+        if (lock === "true") setIsAppLockEnabledState(true);
       } catch {
         // ignore storage errors
       } finally {
@@ -73,12 +79,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING, "true");
   }, []);
 
+  const setAppLockEnabled = useCallback(async (enabled: boolean) => {
+    setIsAppLockEnabledState(enabled);
+    if (enabled) {
+      await AsyncStorage.setItem(STORAGE_KEYS.APP_LOCK, "true");
+    } else {
+      await AsyncStorage.removeItem(STORAGE_KEYS.APP_LOCK);
+    }
+  }, []);
+
   const resetApp = useCallback(async () => {
     await AsyncStorage.multiRemove(Object.values(STORAGE_KEYS));
     setLanguageState("en");
     setBusinessTypeState("kirana");
     setShopNameState("");
     setOnboardingComplete(false);
+    setIsAppLockEnabledState(false);
   }, []);
 
   return (
@@ -88,11 +104,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         businessType,
         shopName,
         onboardingComplete,
+        isAppLockEnabled,
         isLoading,
         setLanguage,
         setBusinessType,
         setShopName,
         completeOnboarding,
+        setAppLockEnabled,
         resetApp,
       }}
     >

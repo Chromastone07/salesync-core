@@ -12,6 +12,7 @@ import {
   Text,
   TextInput,
   View,
+  Switch,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -37,6 +38,8 @@ export default function SettingsScreen() {
     setLanguage,
     setShopName,
     resetApp,
+    isAppLockEnabled,
+    setAppLockEnabled,
   } = useApp();
   const { sales, inventoryItems, clearStore, exportData, importData } = useStore();
   const t = translations[language];
@@ -382,6 +385,25 @@ export default function SettingsScreen() {
               <Feather name="briefcase" size={16} color={colors.primary} />
             </View>
             <Text style={styles.rowLabel}>{businessName}</Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Security</Text>
+          <View style={[styles.row, styles.rowFirst]}>
+            <View style={styles.rowIcon}>
+              <Feather name="lock" size={16} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>App Lock</Text>
+              <Text style={styles.rowValue}>Require biometric unlock to open app</Text>
+            </View>
+            <Switch
+              value={isAppLockEnabled}
+              onValueChange={setAppLockEnabled}
+              trackColor={{ false: colors.muted, true: colors.primary }}
+              thumbColor={"#ffffff"}
+            />
           </View>
         </View>
 

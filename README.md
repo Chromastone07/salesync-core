@@ -65,6 +65,7 @@ Follow these steps to get SaleSync running on your own computer and mobile devic
    ```bash
    pnpm --filter @workspace/dukaan run dev
    ```
+   eas build --profile development --platform android 
 
 4. **Open the App:**
    - Once the server starts, you will see a large **QR Code** in your terminal.
