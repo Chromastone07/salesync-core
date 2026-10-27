@@ -91,8 +91,9 @@ When you are ready to distribute your app to real users, you can generate a stan
    ```
 
 3. **Trigger the Cloud Build:**
-   Once logged in, run the following command to securely send your code to Expo's cloud servers, where it will be compiled into a `.apk` file:
+   Navigate into the app directory and run the build command to compile your `.apk`:
    ```bash
+   cd apps/dukaan
    pnpm dlx eas-cli build -p android --profile preview
    ```
 
