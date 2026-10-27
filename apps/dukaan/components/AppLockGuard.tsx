@@ -75,11 +75,16 @@ export function AppLockGuard({ children }: { children: React.ReactNode }) {
   if (isAppLockEnabled && isLocked) {
     return (
       <View style={styles.container}>
-        <Feather name="lock" color="#10b981" size={64} style={styles.icon} />
-        <Text style={styles.title}>App Locked</Text>
-        <Text style={styles.subtitle}>Unlock with your fingerprint or PIN</Text>
+        <View style={styles.iconCircle}>
+          <Feather name="shield" color="#F97316" size={48} />
+        </View>
+        <Text style={styles.title}>SaleSync Locked</Text>
+        <Text style={styles.subtitle}>
+          Use your fingerprint, face, or device PIN to continue
+        </Text>
         <Pressable style={styles.button} onPress={authenticate}>
-          <Text style={styles.buttonText}>Unlock</Text>
+          <Feather name="unlock" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+          <Text style={styles.buttonText}>Unlock Register</Text>
         </Pressable>
       </View>
     );
@@ -91,38 +96,56 @@ export function AppLockGuard({ children }: { children: React.ReactNode }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#FFFBF5",
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
+    padding: 28,
   },
-  icon: {
+  iconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: "#FFF7ED",
+    borderWidth: 2,
+    borderColor: "#FFEDD5",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 24,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#111827",
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    color: "#1E293B",
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
-    color: "#6b7280",
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    color: "#64748B",
     marginBottom: 32,
     textAlign: "center",
+    lineHeight: 20,
+    maxWidth: 280,
   },
   button: {
     width: "100%",
-    maxWidth: 300,
-    backgroundColor: "#10b981",
+    maxWidth: 280,
+    backgroundColor: "#F97316",
     paddingVertical: 14,
     paddingHorizontal: 24,
-    borderRadius: 8,
+    borderRadius: 12,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#F97316",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
   buttonText: {
     color: "#ffffff",
     fontSize: 16,
-    fontWeight: "bold",
-  }
+    fontFamily: "Inter_600SemiBold",
+  },
 });

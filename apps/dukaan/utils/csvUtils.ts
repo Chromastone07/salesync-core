@@ -42,12 +42,18 @@ export async function parseInventoryCSV(fileUri: string): Promise<Omit<Inventory
             const name = row['Name']?.trim();
             if (!name) return; // Skip if no name
             
-            const rate = parseFloat(row['Price']) || 0;
+            const rawRate = row['Price'] !== undefined && row['Price'] !== null
+              ? String(row['Price']).replace(/[^0-9.]/g, '')
+              : '';
+            const rate = parseFloat(rawRate) || 0;
             const unit = row['Unit']?.trim() || 'pcs';
             const isService = unit.toLowerCase() === 'service';
             
-            let stock: number | undefined = parseFloat(row['Initial Stock']);
-            if (isNaN(stock) || isService) {
+            const rawStock = row['Initial Stock'] !== undefined && row['Initial Stock'] !== null
+              ? String(row['Initial Stock']).replace(/[^0-9.]/g, '')
+              : '';
+            let stock: number | undefined = rawStock !== '' ? parseFloat(rawStock) : undefined;
+            if (stock !== undefined && (isNaN(stock) || isService)) {
               stock = undefined;
             }
 

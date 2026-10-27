@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
@@ -21,8 +22,9 @@ import {
   type Language,
   translations,
 } from "@/constants/translations";
-import { BannerAd } from "@/components/BannerAd";
 import { WeeklyChart } from "@/components/WeeklyChart";
+import { StoreSwitcherModal } from "@/components/StoreSwitcherModal";
+import { StateView } from "@/components/StateView";
 import { useColors } from "@/hooks/useColors";
 
 function formatTime(dateStr: string) {
@@ -130,7 +132,6 @@ function SaleCard({ sale }: { sale: Sale }) {
           </View>
         ))}
       </View>
-      <BannerAd />
     </View>
   );
 }
@@ -141,11 +142,52 @@ export default function DashboardScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { language, shopName } = useApp();
-  const { sales, getTodaySales } = useStore();
-  const t = translations[language];
-
+  const {
+    language,
+    shopName,
+    shopPhone,
+    shopUpi,
+    shopAddress,
+    backupEmail,
+    businessType,
+  } = useApp();
+  const {
+    sales,
+    getTodaySales,
+    inventoryItems,
+    exportData,
+    isLoading,
+    loadError,
+    reloadStoreData,
+  } = useStore();
+  const t = translations[language] || translations.en;
   const [timeframe, setTimeframe] = useState<Timeframe>("today");
+  const [showStoreSwitcher, setShowStoreSwitcher] = useState(false);
+
+  const businessLabel = BUSINESS_TYPES.find((b) => b.type === businessType);
+  const businessName =
+    language === "hi"
+      ? businessLabel?.hi
+      : language === "mr"
+        ? businessLabel?.mr
+        : businessLabel?.en;
+
+  const handleClosingBackup = async () => {
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await exportData({
+        shopName,
+        shopPhone,
+        shopUpi,
+        shopAddress,
+        backupEmail,
+        businessType,
+        language,
+      });
+    } catch (e) {
+      // export handled
+    }
+  };
 
   const today = new Date();
   
@@ -172,6 +214,11 @@ export default function DashboardScreen() {
       ? t.thisMonthSales 
       : t.lifetimeSales;
 
+  const unnamedCount = useMemo(
+    () => inventoryItems.filter((i) => i.needsNaming).length,
+    [inventoryItems]
+  );
+
   const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
@@ -183,19 +230,40 @@ export default function DashboardScreen() {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      paddingBottom: 20,
-      paddingTop: 16,
+      paddingBottom: 16,
+      paddingTop: 12,
     },
-    appTitle: {
-      fontSize: 22,
+    storeSelectorPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 14,
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      maxWidth: "68%",
+    },
+    storeIconBox: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    storeNameText: {
+      fontSize: 14,
       fontFamily: "Inter_700Bold",
-      color: colors.primary,
-      letterSpacing: -0.5,
+      color: colors.foreground,
     },
-    shopLabel: {
-      fontSize: 13,
+    storeCategoryText: {
+      fontSize: 10,
       fontFamily: "Inter_400Regular",
       color: colors.mutedForeground,
+      textTransform: "uppercase",
+      letterSpacing: 0.3,
     },
     newSaleBtn: {
       flexDirection: "row",
@@ -241,8 +309,42 @@ export default function DashboardScreen() {
     statsCard: {
       borderRadius: colors.radius + 4,
       marginHorizontal: 20,
-      marginBottom: 20,
+      marginBottom: 16,
       overflow: "hidden",
+    },
+    unnamedAlert: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: "#FEF3C7",
+      marginHorizontal: 20,
+      marginBottom: 16,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: colors.radius,
+      borderWidth: 1,
+      borderColor: "#FDE68A",
+    },
+    unnamedAlertLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      flex: 1,
+    },
+    unnamedAlertText: {
+      fontSize: 12,
+      fontFamily: "Inter_600SemiBold",
+      color: "#92400E",
+    },
+    unnamedAlertRight: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    unnamedAlertAction: {
+      fontSize: 12,
+      fontFamily: "Inter_700Bold",
+      color: "#B45309",
     },
     statsGradient: {
       padding: 24,
@@ -323,12 +425,33 @@ export default function DashboardScreen() {
       {/* Fixed header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <View>
-            <Text style={styles.appTitle}>Dukaan</Text>
-            {shopName ? (
-              <Text style={styles.shopLabel}>{shopName}</Text>
-            ) : null}
-          </View>
+          <Pressable
+            style={styles.storeSelectorPill}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setShowStoreSwitcher(true);
+            }}
+          >
+            <View style={styles.storeIconBox}>
+              <Feather
+                name={(businessLabel?.icon as any) || "shopping-bag"}
+                size={16}
+                color="#FFFFFF"
+              />
+            </View>
+            <View style={{ flexShrink: 1, marginRight: 2 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Text style={styles.storeNameText} numberOfLines={1}>
+                  {shopName || "My Store"}
+                </Text>
+                <Feather name="chevron-down" size={13} color={colors.foreground} />
+              </View>
+              <Text style={styles.storeCategoryText} numberOfLines={1}>
+                {businessName || "Kirana"}
+              </Text>
+            </View>
+          </Pressable>
+
           <Pressable
             style={styles.newSaleBtn}
             onPress={() => router.push("/(tabs)/sale")}
@@ -387,8 +510,107 @@ export default function DashboardScreen() {
           </LinearGradient>
         </View>
 
+        {/* Unnamed quick-scanned items reminder */}
+        {unnamedCount > 0 && (
+          <Pressable
+            style={styles.unnamedAlert}
+            onPress={() => router.push("/(tabs)/inventory")}
+          >
+            <View style={styles.unnamedAlertLeft}>
+              <Feather name="tag" size={15} color="#D97706" />
+              <Text style={styles.unnamedAlertText}>
+                {unnamedCount} quick-scanned {unnamedCount === 1 ? "item needs" : "items need"} a name
+              </Text>
+            </View>
+            <View style={styles.unnamedAlertRight}>
+              <Text style={styles.unnamedAlertAction}>Name now</Text>
+              <Feather name="chevron-right" size={13} color="#D97706" />
+            </View>
+          </Pressable>
+        )}
+
         {/* 7-day bar chart */}
         <WeeklyChart sales={sales} />
+
+        {/* 1-Tap End of Day Backup prompt */}
+        {timeframe === "today" && filteredData.length > 0 && (
+          <Pressable
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: "#FFF7ED",
+              marginHorizontal: 20,
+              marginTop: 14,
+              marginBottom: 4,
+              padding: 12,
+              borderRadius: colors.radius,
+              borderWidth: 1,
+              borderColor: "#FFEDD5",
+              gap: 10,
+            }}
+            onPress={handleClosingBackup}
+          >
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 8,
+                backgroundColor: "#EA580C",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Feather name="moon" size={16} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: "Inter_600SemiBold",
+                  color: "#9A3412",
+                }}
+              >
+                Closing shop for today?
+              </Text>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontFamily: "Inter_400Regular",
+                  color: "#C2410C",
+                  marginTop: 1,
+                }}
+              >
+                {backupEmail
+                  ? `1-tap backup to Drive or ${backupEmail}`
+                  : "1-tap backup today's sales to Drive / Email"}
+              </Text>
+            </View>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                backgroundColor: "#FFFFFF",
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: "#FDBA74",
+              }}
+            >
+              <Feather name="upload-cloud" size={14} color="#EA580C" />
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontFamily: "Inter_600SemiBold",
+                  color: "#EA580C",
+                }}
+              >
+                Backup
+              </Text>
+            </View>
+          </Pressable>
+        )}
 
         {/* Today's sales list */}
         <View style={styles.sectionHeader}>
@@ -396,21 +618,32 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.salesList}>
-          {filteredData.length === 0 ? (
-            <View style={styles.emptyState}>
-              <View style={styles.emptyIcon}>
-                <Feather name="sunrise" size={24} color={colors.mutedForeground} />
-              </View>
-              <Text style={styles.emptyTitle}>{t.noSalesToday}</Text>
-              <Text style={styles.emptyText}>{t.tapToAdd}</Text>
-            </View>
-          ) : (
-            filteredData.slice(0, 30).map((sale) => <SaleCard key={sale.id} sale={sale} />)
-          )}
+          <StateView
+            isLoading={isLoading}
+            loadingMessage="Loading sales..."
+            error={loadError}
+            errorMessage="Failed to read sales records from device storage."
+            onRetry={reloadStoreData}
+            isEmpty={filteredData.length === 0}
+            emptyIcon="sunrise"
+            emptyTitle={t.noSalesToday}
+            emptySubtitle={t.tapToAdd}
+            emptyActionLabel={t.createBill}
+            onEmptyAction={() => router.push("/(tabs)/sale")}
+          >
+            {filteredData.slice(0, 30).map((sale) => (
+              <SaleCard key={sale.id} sale={sale} />
+            ))}
+          </StateView>
         </View>
 
         <View style={styles.listBottom} />
       </ScrollView>
+
+      <StoreSwitcherModal
+        visible={showStoreSwitcher}
+        onClose={() => setShowStoreSwitcher(false)}
+      />
     </View>
   );
 }

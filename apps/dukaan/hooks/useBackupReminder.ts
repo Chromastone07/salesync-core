@@ -78,21 +78,45 @@ export function useBackupReminder() {
       return;
     }
 
-    // 4. Schedule new notification
-    let seconds = 0;
-    if (newFreq === "daily") seconds = 86400; // 24 hours
-    else if (newFreq === "weekly") seconds = 604800; // 7 days
-    else if (newFreq === "monthly") seconds = 2592000; // 30 days
-
-    if (seconds > 0) {
+    // 4. Schedule new notification at 9:00 PM (21:00) closing time
+    if (newFreq === "daily") {
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: "Time to Backup! 💾",
-          body: "Don't forget to backup your Shop-Register-Pro data to Google Drive to keep it safe.",
+          title: "SaleSync: Day Closing Backup 💾",
+          body: "Shop closing? Tap to save today's sales and catalog to your Email or Google Drive.",
         },
         trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-          seconds,
+          type: Notifications.SchedulableTriggerInputTypes?.DAILY || "daily",
+          hour: 21,
+          minute: 0,
+          repeats: true,
+        },
+      });
+    } else if (newFreq === "weekly") {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "SaleSync: Weekly Store Backup 💾",
+          body: "Sunday store closing: Tap to save this week's backup to your Email or Google Drive.",
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes?.WEEKLY || "weekly",
+          weekday: 1, // Sunday
+          hour: 21,
+          minute: 0,
+          repeats: true,
+        },
+      });
+    } else if (newFreq === "monthly") {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "SaleSync: Monthly Store Backup 💾",
+          body: "End of month: Tap to export your store records to Google Drive.",
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes?.MONTHLY || "monthly",
+          day: 1,
+          hour: 21,
+          minute: 0,
           repeats: true,
         },
       });

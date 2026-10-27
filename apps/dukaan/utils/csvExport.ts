@@ -1,5 +1,5 @@
 import { Platform } from "react-native";
-import * as FileSystemModule from "expo-file-system";
+import * as FileSystemModule from "expo-file-system/legacy";
 import * as SharingModule from "expo-sharing";
 import type { Sale } from "@/context/StoreContext";
 

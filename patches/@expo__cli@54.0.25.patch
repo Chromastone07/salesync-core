@@ -1,0 +1,97 @@
+diff --git a/build/src/api/getNativeModuleVersions.js b/build/src/api/getNativeModuleVersions.js
+index 4c7bc7f5e740de9e85de589cdd37374450ac8d6c..e02230c2b8de8a93cd4f907dc78cff13d11a43a9 100644
+--- a/build/src/api/getNativeModuleVersions.js
++++ b/build/src/api/getNativeModuleVersions.js
+@@ -20,7 +20,12 @@ async function getNativeModuleVersionsAsync(sdkVersion) {
+     if (!response.ok) {
+         throw new _errors.CommandError('API', `Unexpected response when fetching version info from Expo servers: ${response.statusText}.`);
+     }
+-    const json = await response.json();
++    let json;
++    try {
++        json = await response.json();
++    } catch (error) {
++        throw new _errors.CommandError('API', `Unexpected response when reading version info from Expo servers: ${error.message}`);
++    }
+     const data = (0, _client.getResponseDataOrThrow)(json);
+     if (!data.length) {
+         throw new _errors.CommandError('VERSIONS', 'The bundled native module list from the Expo API is empty');
+diff --git a/build/src/api/rest/cache/FileSystemResponseCache.js b/build/src/api/rest/cache/FileSystemResponseCache.js
+index 883be98ccd8c964d7e2d27264fb2af4599d14fe9..f776688bf01fbb55bd45ed888a999154e51998a3 100644
+--- a/build/src/api/rest/cache/FileSystemResponseCache.js
++++ b/build/src/api/rest/cache/FileSystemResponseCache.js
+@@ -117,7 +117,16 @@ class FileSystemResponseCache {
+             if (empty) {
+                 responseBody = _nodestream().Readable.toWeb(_nodestream().Readable.from(Buffer.alloc(0)));
+             } else {
+-                const bodyBuffer = await _nodefs().default.promises.readFile(paths.body);
++                let bodyBuffer;
++                for (let i = 0; i < 3; i++) {
++                    try {
++                        bodyBuffer = await _nodefs().default.promises.readFile(paths.body);
++                        break;
++                    } catch (err) {
++                        if (i === 2) throw err;
++                        await new Promise((r) => setTimeout(r, 50));
++                    }
++                }
+                 responseBody = _nodestream().Readable.toWeb(_nodestream().Readable.from(bodyBuffer));
+             }
+             return {
+@@ -156,8 +165,13 @@ class FileSystemResponseCache {
+                 const writeStream = _nodefs().default.createWriteStream(paths.body);
+                 const nodeStream = _nodestream().Readable.fromWeb(forWrite);
+                 nodeStream.pipe(writeStream);
+-                // Wait for the stream to finish
+-                await _nodestream().default.promises.finished(writeStream);
++                // Wait for the stream to finish and close
++                await new Promise((resolve, reject) => {
++                    writeStream.on('close', resolve);
++                    writeStream.on('finish', () => setTimeout(resolve, 50));
++                    writeStream.on('error', reject);
++                    nodeStream.on('error', reject);
++                });
+                 responseInfo.bodyPath = paths.body;
+             }
+             // Write info to file
+diff --git a/build/src/api/rest/cache/wrapFetchWithCache.js b/build/src/api/rest/cache/wrapFetchWithCache.js
+index daad31c8c31e9e3fefa4de61c325343c5fbdc35d..76bb594180eb9fc23f598cec95126c7700749a0a 100644
+--- a/build/src/api/rest/cache/wrapFetchWithCache.js
++++ b/build/src/api/rest/cache/wrapFetchWithCache.js
+@@ -36,16 +36,30 @@ function wrapFetchWithCache(fetch, cache) {
+             if (!response.ok || !response.body) {
+                 return response;
+             }
++            // Tee stream so responseToReturn is never unusable
++            let bodyToCache;
++            let responseToReturn = response;
++            try {
++                const [stream1, stream2] = response.body.tee();
++                bodyToCache = stream1;
++                responseToReturn = new (_undici()).Response(stream2, response);
++            } catch {
++                return response;
++            }
+             // Cache the response
+-            cachedResponse = await cache.set(cacheKey, {
+-                body: response.body,
+-                info: (0, _ResponseCache.getResponseInfo)(response)
+-            });
++            try {
++                cachedResponse = await cache.set(cacheKey, {
++                    body: bodyToCache,
++                    info: (0, _ResponseCache.getResponseInfo)(response)
++                });
++            } catch {
++                cachedResponse = undefined;
++            }
+             // Warn through debug logs that caching failed
+             if (!cachedResponse) {
+                 debug(`Failed to cache response for: ${url}`);
+-                await cache.remove(cacheKey);
+-                return response;
++                await cache.remove(cacheKey).catch(()=>{});
++                return responseToReturn;
+             }
+             // Return the cached response
+             return new (_undici()).Response(cachedResponse.body, cachedResponse.info);

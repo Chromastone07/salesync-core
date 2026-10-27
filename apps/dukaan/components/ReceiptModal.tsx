@@ -26,7 +26,7 @@ export function ReceiptModal({
   onClose: () => void;
 }) {
   const colors = useColors();
-  const { shopName } = useApp();
+  const { shopName, shopPhone, shopUpi, shopAddress } = useApp();
   const viewShotRef = useRef<any>(null);
   const [sharing, setSharing] = useState(false);
 
@@ -95,11 +95,18 @@ export function ReceiptModal({
       color: "#0F172A",
       textAlign: "center",
     },
+    shopSubtitle: {
+      fontSize: 12,
+      fontFamily: "Inter_500Medium",
+      color: "#475569",
+      marginTop: 2,
+      textAlign: "center",
+    },
     receiptLabel: {
       fontSize: 12,
       fontFamily: "Inter_600SemiBold",
       color: "#64748B",
-      marginTop: 4,
+      marginTop: 6,
       textTransform: "uppercase",
       letterSpacing: 1,
     },
@@ -175,6 +182,24 @@ export function ReceiptModal({
       fontFamily: "Inter_700Bold",
       color: "#0F172A",
     },
+    upiCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      backgroundColor: "#F8FAFC",
+      borderWidth: 1,
+      borderColor: "#E2E8F0",
+      borderRadius: 8,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      marginTop: 12,
+    },
+    upiText: {
+      fontSize: 13,
+      fontFamily: "Inter_600SemiBold",
+      color: "#0F172A",
+    },
     footer: {
       alignItems: "center",
       marginTop: 24,
@@ -237,8 +262,8 @@ export function ReceiptModal({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <View style={styles.dialogContainer}>
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable onPress={(e) => e.stopPropagation()} style={styles.dialogContainer}>
           {/* The Receipt Snapshot Area */}
           <ViewShot
             ref={viewShotRef}
@@ -250,6 +275,12 @@ export function ReceiptModal({
                 <Text style={styles.shopTitle}>
                   {shopName || "SaleSync Shop"}
                 </Text>
+                {shopPhone ? (
+                  <Text style={styles.shopSubtitle}>📞 {shopPhone}</Text>
+                ) : null}
+                {shopAddress ? (
+                  <Text style={styles.shopSubtitle}>{shopAddress}</Text>
+                ) : null}
                 <Text style={styles.receiptLabel}>Cash Receipt</Text>
               </View>
 
@@ -300,6 +331,13 @@ export function ReceiptModal({
                 <Text style={styles.totalAmount}>₹{sale.total}</Text>
               </View>
 
+              {shopUpi ? (
+                <View style={styles.upiCard}>
+                  <Feather name="credit-card" size={14} color="#0F172A" />
+                  <Text style={styles.upiText}>Pay via UPI: {shopUpi}</Text>
+                </View>
+              ) : null}
+
               <View style={styles.footer}>
                 {sale.status === "unpaid" ? (
                   <Text style={[styles.thankYouText, { color: "#ef4444", textAlign: "center", paddingHorizontal: 10 }]}>
@@ -333,8 +371,8 @@ export function ReceiptModal({
               )}
             </Pressable>
           </View>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }

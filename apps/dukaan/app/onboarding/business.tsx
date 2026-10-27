@@ -26,7 +26,7 @@ export default function BusinessScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { language, setBusinessType } = useApp();
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const [selected, setSelected] = useState<BusinessType | null>(null);
 
   const handleSelect = (bt: BusinessType) => {

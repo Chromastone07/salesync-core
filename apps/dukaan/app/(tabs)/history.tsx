@@ -12,13 +12,15 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useRouter } from "expo-router";
 import { useApp } from "@/context/AppContext";
 import { useStore } from "@/context/StoreContext";
 import type { Sale } from "@/context/StoreContext";
 import { useColors } from "@/hooks/useColors";
 import { translations } from "@/constants/translations";
 import { ReceiptModal } from "@/components/ReceiptModal";
-import { BannerAd } from "@/components/BannerAd";
+import { StateView, EmptyState } from "@/components/StateView";
+import { downloadWeeklyCSV } from "@/utils/csvExport";
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
@@ -343,9 +345,17 @@ function SaleCard({
 export default function HistoryScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { language } = useApp();
-  const { sales, deleteSale, markSaleAsPaid } = useStore();
-  const t = translations[language];
+  const {
+    sales,
+    deleteSale,
+    markSaleAsPaid,
+    isLoading,
+    loadError,
+    reloadStoreData,
+  } = useStore();
+  const t = translations[language] || translations.en;
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"paid" | "unpaid">("paid");
   const [receiptSale, setReceiptSale] = useState<Sale | null>(null);
@@ -363,7 +373,9 @@ export default function HistoryScreen() {
     return filtered.filter((s) => {
       const nameMatch = s.customerName?.toLowerCase().includes(q);
       const phoneMatch = s.customerPhone?.toLowerCase().includes(q);
-      return nameMatch || phoneMatch;
+      const noteMatch = s.note?.toLowerCase().includes(q);
+      const itemMatch = s.items.some((item) => item.label.toLowerCase().includes(q));
+      return Boolean(nameMatch || phoneMatch || noteMatch || itemMatch);
     });
   }, [sales, searchQuery, activeTab]);
 
@@ -402,6 +414,22 @@ export default function HistoryScreen() {
       fontSize: 20,
       fontFamily: "Inter_700Bold",
       color: colors.foreground,
+    },
+    exportHeaderBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 16,
+      backgroundColor: colors.muted,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    exportHeaderText: {
+      fontSize: 12,
+      fontFamily: "Inter_600SemiBold",
+      color: colors.primary,
     },
     searchBar: {
       flexDirection: "row",
@@ -522,6 +550,21 @@ export default function HistoryScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t.salesHistory}</Text>
+        {sales.length > 0 && (
+          <Pressable
+            style={styles.exportHeaderBtn}
+            onPress={async () => {
+              try {
+                await downloadWeeklyCSV(sales);
+              } catch (e: any) {
+                Alert.alert("Export Error", e?.message || "Could not export sales report.");
+              }
+            }}
+          >
+            <Feather name="download" size={13} color={colors.primary} />
+            <Text style={styles.exportHeaderText}>Export CSV</Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Customer search bar */}
@@ -530,7 +573,7 @@ export default function HistoryScreen() {
           <Feather name="search" size={14} color={colors.mutedForeground} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search by customer name or phone…"
+            placeholder="Search customer, item, phone, or note…"
             placeholderTextColor={colors.mutedForeground}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -564,57 +607,84 @@ export default function HistoryScreen() {
         </Pressable>
       </View>
 
-      {sales.length === 0 ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIcon}>
-            <Feather name="clock" size={32} color={colors.mutedForeground} />
-          </View>
-          <Text style={styles.emptyTitle}>{t.noHistory}</Text>
-          <Text style={styles.emptyText}>{t.tapToAdd}</Text>
-        </View>
-      ) : filteredSales.length === 0 ? (
-        <Text style={styles.noResultsText}>
-          No sales found for "{searchQuery}"
-        </Text>
-      ) : (
-        <FlatList
-          data={groups}
-          keyExtractor={(g) => g.date}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item: group }) => {
-            const groupTotal = group.sales.reduce((s, g) => s + g.total, 0);
-            return (
-              <View>
-                <View style={styles.dateHeader}>
-                  <Text style={styles.dateLabel}>{formatDate(group.date)}</Text>
-                  <View style={styles.dateTotalChip}>
-                    <Text style={styles.dateTotalText}>
-                      ₹{groupTotal.toFixed(0)}
-                    </Text>
+      <StateView
+        isLoading={isLoading}
+        loadingMessage="Loading sales history..."
+        error={loadError}
+        errorMessage="Could not read sales records from device storage."
+        onRetry={reloadStoreData}
+        isEmpty={sales.length === 0}
+        emptyIcon="clock"
+        emptyTitle={t.noHistory}
+        emptySubtitle={t.tapToAdd}
+        emptyActionLabel={t.createBill}
+        onEmptyAction={() => router.push("/(tabs)/sale")}
+      >
+        {filteredSales.length === 0 ? (
+          searchQuery.trim().length > 0 ? (
+            <EmptyState
+              icon="search"
+              title="No Matching Sales"
+              subtitle={`No sales records matching "${searchQuery}"`}
+              actionLabel="Clear Search"
+              onAction={() => setSearchQuery("")}
+            />
+          ) : activeTab === "unpaid" ? (
+            <EmptyState
+              icon="check-circle"
+              title="All Dues Cleared! 🎉"
+              subtitle="There are no unpaid bills or customer credit pending in this store."
+              actionLabel="Create Bill"
+              onAction={() => router.push("/(tabs)/sale")}
+            />
+          ) : (
+            <EmptyState
+              icon="inbox"
+              title="No Paid Sales Yet"
+              subtitle="Completed sales will appear here."
+              actionLabel={t.createBill}
+              onAction={() => router.push("/(tabs)/sale")}
+            />
+          )
+        ) : (
+          <FlatList
+            data={groups}
+            keyExtractor={(g) => g.date}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item: group }) => {
+              const groupTotal = group.sales.reduce((s, g) => s + g.total, 0);
+              return (
+                <View>
+                  <View style={styles.dateHeader}>
+                    <Text style={styles.dateLabel}>{formatDate(group.date)}</Text>
+                    <View style={styles.dateTotalChip}>
+                      <Text style={styles.dateTotalText}>
+                        ₹{groupTotal.toFixed(0)}
+                      </Text>
+                    </View>
                   </View>
+                  {group.sales.map((sale) => (
+                    <SaleCard
+                      key={sale.id}
+                      sale={sale}
+                      onDelete={() => handleDelete(sale)}
+                      onViewReceipt={() => setReceiptSale(sale)}
+                      onMarkAsPaid={sale.status === "unpaid" ? () => handleMarkAsPaid(sale) : undefined}
+                    />
+                  ))}
                 </View>
-                {group.sales.map((sale) => (
-                  <SaleCard
-                    key={sale.id}
-                    sale={sale}
-                    onDelete={() => handleDelete(sale)}
-                    onViewReceipt={() => setReceiptSale(sale)}
-                    onMarkAsPaid={sale.status === "unpaid" ? () => handleMarkAsPaid(sale) : undefined}
-                  />
-                ))}
-              </View>
-            );
-          }}
-          ListFooterComponent={<View style={styles.listBottom} />}
-        />
-      )}
+              );
+            }}
+            ListFooterComponent={<View style={styles.listBottom} />}
+          />
+        )}
+      </StateView>
 
       <ReceiptModal
         visible={!!receiptSale}
         sale={receiptSale}
         onClose={() => setReceiptSale(null)}
       />
-      <BannerAd />
     </View>
   );
 }

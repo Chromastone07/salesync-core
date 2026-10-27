@@ -3,6 +3,7 @@ import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
   Alert,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -16,12 +17,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
 import { useStore } from "@/context/StoreContext";
 import type { SaleLineItem, Sale } from "@/context/StoreContext";
+import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { translations } from "@/constants/translations";
 import { ScannerModal } from "@/components/ScannerModal";
 import { UnknownBarcodeModal } from "@/components/UnknownBarcodeModal";
 import { ScannedItemModal } from "@/components/ScannedItemModal";
 import { ReceiptModal } from "@/components/ReceiptModal";
+import { StateView, EmptyState } from "@/components/StateView";
+import { matchBarcode } from "@/utils/fmcgApi";
 
 type CartItem = {
   itemId: string;
@@ -34,15 +38,31 @@ type CartItem = {
 };
 
 function formatCurrency(n: number) {
-  return `₹${n.toFixed(0)}`;
+  return n % 1 === 0 ? `₹${n.toFixed(0)}` : `₹${n.toFixed(2)}`;
 }
 
 export default function SaleScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { language } = useApp();
-  const { inventoryItems, addSale, addInventoryItem } = useStore();
-  const t = translations[language];
+  const { language, activeStoreId, shopName } = useApp();
+  const router = useRouter();
+  const {
+    inventoryItems,
+    addSale,
+    addInventoryItem,
+    isLoading,
+    loadError,
+    reloadStoreData,
+  } = useStore();
+  const t = translations[language] || translations.en;
+
+  React.useEffect(() => {
+    setCart([]);
+    setCustomerName("");
+    setCustomerPhone("");
+    setQuickAmount("");
+    setQuickLabel("");
+  }, [activeStoreId]);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCustomer, setShowCustomer] = useState(false);
@@ -57,6 +77,8 @@ export default function SaleScreen() {
   const [scannedItemId, setScannedItemId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [receiptSale, setReceiptSale] = useState<Sale | null>(null);
+  const [editingQtyItem, setEditingQtyItem] = useState<CartItem | null>(null);
+  const [qtyInput, setQtyInput] = useState<string>("");
 
   const filteredItems = inventoryItems.filter((item) => {
     if (!searchQuery) return true;
@@ -128,14 +150,30 @@ export default function SaleScreen() {
     setPaymentStatus("paid");
   };
 
-  const handleScan = (rawBarcode: string) => {
+  const handleScan = async (rawBarcode: string) => {
     const barcode = rawBarcode.trim();
-    const item = inventoryItems.find((i) => i.barcode === barcode);
+    const item = inventoryItems.find((i) => matchBarcode(i.barcode, barcode));
     if (item) {
-      increment(item);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setShowScanner(false);
-      setScannedItemId(item.id);
+
+      if (mode === "quick") {
+        // Instant Sell Mode: Auto-fill everything and create sale directly!
+        const lineItem: SaleLineItem = {
+          item_id: item.id,
+          label: item.localLabel || item.label,
+          quantity: 1,
+          unit: item.unit || "piece",
+          rate: item.rate,
+          total: item.rate,
+          is_service: item.isService,
+        };
+        await processSale([lineItem]);
+        return;
+      }
+
+      // Items Mode: Directly add to cart with zero annoying dialogs
+      increment(item);
       return;
     }
 
@@ -148,7 +186,6 @@ export default function SaleScreen() {
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setShowScanner(false);
-      setScannedItemId(`scanned-${barcode}`);
       return;
     }
 
@@ -156,33 +193,34 @@ export default function SaleScreen() {
     setUnknownBarcode(barcode);
   };
 
-  const handleUnknownQuickSale = (price: number) => {
-    setCart((prev) => [
-      ...prev,
-      {
-        itemId: `scanned-${unknownBarcode}`,
-        label: `Scanned Item (${unknownBarcode})`,
-        localLabel: `Scanned Item (${unknownBarcode})`,
-        unit: "pc",
-        rate: price,
-        quantity: 1,
-        isService: true,
-      },
-    ]);
-    setUnknownBarcode("");
-  };
-
-  const handleUnknownAddCatalog = async (name: string, price: number, stock?: number) => {
+  const handleQuickAdd = async (price: number, name?: string, stock?: number) => {
+    const isNamed = Boolean(name && name.trim());
+    const label = isNamed ? name!.trim() : `Item (${unknownBarcode.slice(-4)})`;
     const newItem = await addInventoryItem({
-      label: name,
-      localLabel: name,
+      label: label,
+      localLabel: label,
       unit: "piece",
       rate: price,
       isService: false,
       barcode: unknownBarcode,
       stock: stock,
+      needsNaming: !isNamed,
     });
-    increment(newItem);
+
+    if (mode === "quick") {
+      const lineItem: SaleLineItem = {
+        item_id: newItem.id,
+        label: newItem.localLabel || newItem.label,
+        quantity: 1,
+        unit: newItem.unit || "piece",
+        rate: newItem.rate,
+        total: newItem.rate,
+        is_service: newItem.isService,
+      };
+      await processSale([lineItem]);
+    } else {
+      increment(newItem);
+    }
     setUnknownBarcode("");
   };
 
@@ -626,7 +664,14 @@ export default function SaleScreen() {
       {/* Header */}
       <View style={s.header}>
         <View style={s.headerLeft}>
-          <Text style={s.headerTitle}>{t.newSale}</Text>
+          <View>
+            <Text style={s.headerTitle}>{t.newSale}</Text>
+            {shopName ? (
+              <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
+                {shopName}
+              </Text>
+            ) : null}
+          </View>
           <Pressable style={s.scanBtn} onPress={() => setShowScanner(true)}>
             <Feather name="maximize" size={18} color={colors.primary} />
             <Text style={s.scanBtnText}>{t.scanBarcode ?? "Scan"}</Text>
@@ -683,16 +728,20 @@ export default function SaleScreen() {
               autoCapitalize="sentences"
             />
           </View>
-        ) : inventoryItems.length === 0 ? (
-          <View style={s.empty}>
-            <View style={s.emptyIcon}>
-              <Feather name="package" size={32} color={colors.mutedForeground} />
-            </View>
-            <Text style={s.emptyTitle}>{t.noItems}</Text>
-            <Text style={s.emptySub}>{t.addFirstItem}</Text>
-          </View>
         ) : (
-          <>
+          <StateView
+            isLoading={isLoading}
+            loadingMessage="Loading items..."
+            error={loadError}
+            errorMessage="Could not read items for this store."
+            onRetry={reloadStoreData}
+            isEmpty={inventoryItems.length === 0}
+            emptyIcon="package"
+            emptyTitle={t.noItems}
+            emptySubtitle={t.addFirstItem}
+            emptyActionLabel="Manage Inventory"
+            onEmptyAction={() => router.push("/(tabs)/inventory")}
+          >
             <View style={s.searchContainer}>
               <Feather name="search" size={16} color={colors.mutedForeground} style={s.searchIcon} />
               <TextInput
@@ -708,54 +757,83 @@ export default function SaleScreen() {
                 </Pressable>
               )}
             </View>
-            <Text style={s.sectionLabel}>{t.selectItems}</Text>
-            <View style={s.grid}>
-              {filteredItems.map((item) => {
-                const cartItem = getCartItem(item.id);
-                const isActive = !!cartItem;
-                return (
-                  <View
-                    key={item.id}
-                    style={[s.tile, isActive && s.tileActive]}
-                  >
-                    <Feather
-                      style={s.tileIcon}
-                      name={item.isService ? "zap" : "box"}
-                      size={20}
-                      color={isActive ? colors.primary : colors.mutedForeground}
-                    />
-                    <Text style={s.tileLabel} numberOfLines={2}>
-                      {item.localLabel || item.label}
-                    </Text>
-                    <Text style={s.tileRate}>
-                      ₹{item.rate}/{item.unit}
-                    </Text>
-                    {isActive ? (
-                      <View style={s.qtyRow}>
-                        <Pressable
-                          style={[s.qtyBtn, s.qtyBtnMinus]}
-                          onPress={() => decrement(item.id)}
-                        >
-                          <Feather name="minus" size={12} color={colors.foreground} />
-                        </Pressable>
-                        <Text style={s.qtyNum}>{cartItem!.quantity}</Text>
-                        <Pressable
-                          style={s.qtyBtn}
-                          onPress={() => increment(item)}
-                        >
-                          <Feather name="plus" size={12} color="#fff" />
-                        </Pressable>
+
+            {filteredItems.length === 0 ? (
+              <EmptyState
+                icon="search"
+                title="No items found"
+                subtitle={`No item matching "${searchQuery}" in your store catalog`}
+                actionLabel="Clear Search"
+                onAction={() => setSearchQuery("")}
+                secondaryActionLabel="+ Add to Inventory"
+                onSecondaryAction={() => router.push("/(tabs)/inventory")}
+              />
+            ) : (
+              <>
+                <Text style={s.sectionLabel}>{t.selectItems}</Text>
+                <View style={s.grid}>
+                  {filteredItems.map((item) => {
+                    const cartItem = getCartItem(item.id);
+                    const isActive = !!cartItem;
+                    return (
+                      <View
+                        key={item.id}
+                        style={[s.tile, isActive && s.tileActive]}
+                      >
+                        <Feather
+                          style={s.tileIcon}
+                          name={item.isService ? "zap" : "box"}
+                          size={20}
+                          color={isActive ? colors.primary : colors.mutedForeground}
+                        />
+                        <Text style={s.tileLabel} numberOfLines={2}>
+                          {item.localLabel || item.label}
+                        </Text>
+                        <Text style={s.tileRate}>
+                          ₹{item.rate}/{item.unit}
+                        </Text>
+                        {isActive ? (
+                          <View style={s.qtyRow}>
+                            <Pressable
+                              style={[s.qtyBtn, s.qtyBtnMinus]}
+                              onPress={() => decrement(item.id)}
+                            >
+                              <Feather name="minus" size={12} color={colors.foreground} />
+                            </Pressable>
+                            <Pressable
+                              style={{
+                                paddingHorizontal: 8,
+                                paddingVertical: 2,
+                                borderRadius: 6,
+                                backgroundColor: colors.card,
+                              }}
+                              onPress={() => {
+                                Haptics.selectionAsync();
+                                setEditingQtyItem(cartItem!);
+                                setQtyInput(cartItem!.quantity.toString());
+                              }}
+                            >
+                              <Text style={s.qtyNum}>{cartItem!.quantity}</Text>
+                            </Pressable>
+                            <Pressable
+                              style={s.qtyBtn}
+                              onPress={() => increment(item)}
+                            >
+                              <Feather name="plus" size={12} color="#fff" />
+                            </Pressable>
+                          </View>
+                        ) : (
+                          <Pressable style={s.addBtn} onPress={() => increment(item)}>
+                            <Text style={s.addBtnText}>+ Add</Text>
+                          </Pressable>
+                        )}
                       </View>
-                    ) : (
-                      <Pressable style={s.addBtn} onPress={() => increment(item)}>
-                        <Text style={s.addBtnText}>+ Add</Text>
-                      </Pressable>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-          </>
+                    );
+                  })}
+                </View>
+              </>
+            )}
+          </StateView>
         )}
         <View style={s.spacer} />
       </ScrollView>
@@ -915,8 +993,7 @@ export default function SaleScreen() {
         visible={!!unknownBarcode}
         barcode={unknownBarcode}
         onClose={() => setUnknownBarcode("")}
-        onQuickSale={handleUnknownQuickSale}
-        onAddCatalog={handleUnknownAddCatalog}
+        onQuickAdd={handleQuickAdd}
       />
 
       {scannedItemId && (
@@ -942,6 +1019,281 @@ export default function SaleScreen() {
         sale={receiptSale}
         onClose={() => setReceiptSale(null)}
       />
+
+      {/* Set Fractional / Decimal Quantity Modal */}
+      <Modal
+        visible={!!editingQtyItem}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditingQtyItem(null)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "flex-end",
+          }}
+          onPress={() => setEditingQtyItem(null)}
+        >
+          <Pressable
+            style={{
+              backgroundColor: colors.background,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding: 20,
+              paddingBottom: 32,
+            }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {/* Grab handle */}
+            <View
+              style={{
+                width: 40,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: colors.border,
+                alignSelf: "center",
+                marginBottom: 16,
+              }}
+            />
+
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 12,
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontFamily: "Inter_700Bold",
+                    color: colors.foreground,
+                  }}
+                >
+                  {editingQtyItem?.localLabel || editingQtyItem?.label}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontFamily: "Inter_500Medium",
+                    color: colors.primary,
+                    marginTop: 2,
+                  }}
+                >
+                  Rate: ₹{editingQtyItem?.rate} / {editingQtyItem?.unit}
+                </Text>
+              </View>
+              <Pressable onPress={() => setEditingQtyItem(null)}>
+                <Feather name="x" size={22} color={colors.foreground} />
+              </Pressable>
+            </View>
+
+            {/* Quantity Input */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: colors.card,
+                borderRadius: colors.radius,
+                borderWidth: 2,
+                borderColor: colors.primary,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                marginBottom: 16,
+              }}
+            >
+              <TextInput
+                style={{
+                  flex: 1,
+                  fontSize: 24,
+                  fontFamily: "Inter_700Bold",
+                  color: colors.foreground,
+                }}
+                value={qtyInput}
+                onChangeText={setQtyInput}
+                keyboardType="decimal-pad"
+                placeholder="1"
+                placeholderTextColor={colors.mutedForeground}
+                autoFocus
+                selectTextOnFocus
+              />
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontFamily: "Inter_600SemiBold",
+                  color: colors.mutedForeground,
+                  marginLeft: 8,
+                }}
+              >
+                {editingQtyItem?.unit}
+              </Text>
+            </View>
+
+            {/* Quick Presets */}
+            <Text
+              style={{
+                fontSize: 11,
+                fontFamily: "Inter_600SemiBold",
+                color: colors.mutedForeground,
+                textTransform: "uppercase",
+                marginBottom: 8,
+                letterSpacing: 0.5,
+              }}
+            >
+              Quick Presets
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                flexWrap: "wrap",
+                gap: 8,
+                marginBottom: 16,
+              }}
+            >
+              {(editingQtyItem &&
+              ["kg", "liter", "meter", "gram"].includes(editingQtyItem.unit.toLowerCase())
+                ? [0.25, 0.5, 0.75, 1, 1.5, 2, 5]
+                : ["strip", "tablet"].includes(editingQtyItem?.unit.toLowerCase() || "")
+                  ? [0.5, 1, 2, 5, 10]
+                  : [1, 2, 3, 5, 10, 12]
+              ).map((preset) => {
+                const isSelected = parseFloat(qtyInput) === preset;
+                return (
+                  <Pressable
+                    key={preset}
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 8,
+                      borderRadius: 8,
+                      backgroundColor: isSelected ? colors.primary : colors.muted,
+                      borderWidth: 1,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                    }}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setQtyInput(preset.toString());
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontFamily: "Inter_600SemiBold",
+                        color: isSelected ? "#FFFFFF" : colors.foreground,
+                      }}
+                    >
+                      {preset} {editingQtyItem?.unit}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Live Subtotal Calculation */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                backgroundColor: colors.muted,
+                padding: 12,
+                borderRadius: colors.radius,
+                marginBottom: 20,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: "Inter_500Medium",
+                  color: colors.mutedForeground,
+                }}
+              >
+                Line Total:
+              </Text>
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontFamily: "Inter_700Bold",
+                  color: colors.foreground,
+                }}
+              >
+                ₹{(((parseFloat(qtyInput) || 0) * (editingQtyItem?.rate || 0))).toFixed(2)}
+              </Text>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <Pressable
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: colors.radius,
+                  backgroundColor: "#FEE2E2",
+                  alignItems: "center",
+                  borderWidth: 1,
+                  borderColor: "#FECACA",
+                }}
+                onPress={() => {
+                  if (editingQtyItem) {
+                    setCart((prev) => prev.filter((c) => c.itemId !== editingQtyItem.itemId));
+                    setEditingQtyItem(null);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  }
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 15,
+                    fontFamily: "Inter_600SemiBold",
+                    color: colors.destructive,
+                  }}
+                >
+                  Remove
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={{
+                  flex: 2,
+                  paddingVertical: 14,
+                  borderRadius: colors.radius,
+                  backgroundColor: colors.primary,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                onPress={() => {
+                  const val = parseFloat(qtyInput);
+                  if (isNaN(val) || val <= 0) {
+                    Alert.alert("Invalid Quantity", "Please enter a quantity greater than 0.");
+                    return;
+                  }
+                  if (editingQtyItem) {
+                    setCart((prev) =>
+                      prev.map((c) =>
+                        c.itemId === editingQtyItem.itemId ? { ...c, quantity: val } : c
+                      )
+                    );
+                    setEditingQtyItem(null);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  }
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 15,
+                    fontFamily: "Inter_700Bold",
+                    color: "#FFFFFF",
+                  }}
+                >
+                  Set Quantity
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }

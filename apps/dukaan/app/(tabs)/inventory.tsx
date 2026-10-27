@@ -1,11 +1,12 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
   KeyboardAvoidingView,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -21,11 +22,15 @@ import { useApp } from "@/context/AppContext";
 import { useStore } from "@/context/StoreContext";
 import type { InventoryItem } from "@/context/StoreContext";
 import { useColors } from "@/hooks/useColors";
-import { translations } from "@/constants/translations";
+import { translations, UNIVERSAL_UNITS, SUGGESTED_ITEMS } from "@/constants/translations";
 import * as DocumentPicker from "expo-document-picker";
 import { downloadCSVTemplate, parseInventoryCSV } from "@/utils/csvUtils";
+import { ScannerModal } from "@/components/ScannerModal";
+import { UnknownBarcodeModal } from "@/components/UnknownBarcodeModal";
+import { StateView, EmptyState } from "@/components/StateView";
+import { fetchProductNameByBarcode, matchBarcode } from "@/utils/fmcgApi";
 
-const UNITS = ["kg", "liter", "piece", "dozen", "gram", "meter", "pack", "bottle"];
+const UNITS = [...UNIVERSAL_UNITS];
 
 type FormState = {
   label: string;
@@ -34,6 +39,7 @@ type FormState = {
   rate: string;
   isService: boolean;
   stock: string;
+  barcode: string;
 };
 
 const emptyForm = (): FormState => ({
@@ -43,19 +49,67 @@ const emptyForm = (): FormState => ({
   rate: "",
   isService: false,
   stock: "",
+  barcode: "",
 });
 
 export default function InventoryScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { language } = useApp();
-  const { inventoryItems, addInventoryItem, updateInventoryItem, deleteInventoryItem, addInventoryItems } = useStore();
-  const t = translations[language];
+  const { language, businessType } = useApp();
+  const {
+    inventoryItems,
+    addInventoryItem,
+    updateInventoryItem,
+    deleteInventoryItem,
+    addInventoryItems,
+    isLoading,
+    loadError,
+    reloadStoreData,
+  } = useStore();
+  const t = translations[language] || translations.en;
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [isSaving, setIsSaving] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scanTarget, setScanTarget] = useState<"header" | "form">("header");
+  const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
+  const [existingScannedItem, setExistingScannedItem] = useState<InventoryItem | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredItems = useMemo(() => {
+    if (!searchQuery.trim()) return inventoryItems;
+    const q = searchQuery.toLowerCase().trim();
+    return inventoryItems.filter(
+      (item) =>
+        (item.localLabel && item.localLabel.toLowerCase().includes(q)) ||
+        (item.label && item.label.toLowerCase().includes(q)) ||
+        (item.barcode && item.barcode.includes(q))
+    );
+  }, [inventoryItems, searchQuery]);
+
+  const unnamedItems = useMemo(
+    () => inventoryItems.filter((i) => i.needsNaming),
+    [inventoryItems]
+  );
+
+  const swipePanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+          return gestureState.dy > 8;
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          if (gestureState.dy > 50 || gestureState.vy > 0.4) {
+            Haptics.selectionAsync();
+            setModalVisible(false);
+          }
+        },
+      }),
+    []
+  );
 
   const handleImportCSV = async () => {
     try {
@@ -79,6 +133,49 @@ export default function InventoryScreen() {
     }
   };
 
+  const handleLoadStarterItems = async () => {
+    const suggested = SUGGESTED_ITEMS[businessType] ?? SUGGESTED_ITEMS.other;
+    const existingNames = new Set(
+      inventoryItems.map((i) => (i.localLabel || i.label).trim().toLowerCase())
+    );
+
+    const toAdd = suggested
+      .filter((s) => {
+        const name = (language === "hi" ? s.hi : language === "mr" ? s.mr : s.en).trim().toLowerCase();
+        return !existingNames.has(name) && !existingNames.has(s.en.trim().toLowerCase());
+      })
+      .map((s) => {
+        const name = language === "hi" ? s.hi : language === "mr" ? s.mr : s.en;
+        return {
+          label: s.en,
+          localLabel: name,
+          unit: s.unit,
+          rate: s.rate,
+          isService: s.isService,
+          needsNaming: false,
+        };
+      });
+
+    if (toAdd.length === 0) {
+      Alert.alert(
+        language === "hi" ? "पहले से मौजूद" : language === "mr" ? "आधीच उपलब्ध" : "Already Present",
+        language === "hi"
+          ? "इस दुकान के शुरुआती सामान आपकी सूची में पहले से हैं।"
+          : language === "mr"
+            ? "या व्यवसायासाठी सुरुवाती वस्तू तुमच्या स्टॉकमध्ये आधीच आहेत."
+            : "Starter items for this shop are already present in your inventory."
+      );
+      return;
+    }
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await addInventoryItems(toAdd);
+    Alert.alert(
+      language === "hi" ? "सफलता" : language === "mr" ? "यशस्वी" : "Success",
+      `${toAdd.length} ${t.starterItemsSuccess}`
+    );
+  };
+
   const openAdd = () => {
     setEditingId(null);
     setForm(emptyForm());
@@ -94,8 +191,69 @@ export default function InventoryScreen() {
       rate: item.rate.toString(),
       isService: item.isService,
       stock: item.stock !== undefined ? item.stock.toString() : "",
+      barcode: item.barcode || "",
     });
     setModalVisible(true);
+  };
+
+  const handleScanBarcode = async (barcode: string) => {
+    setShowScanner(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    if (scanTarget === "form") {
+      setForm((f) => ({ ...f, barcode }));
+      if (!form.label.trim()) {
+        try {
+          const fetched = await fetchProductNameByBarcode(barcode);
+          if (fetched) {
+            setForm((f) => ({
+              ...f,
+              label: f.label || fetched,
+              localLabel: f.localLabel || fetched,
+            }));
+          }
+        } catch {
+          // ignore
+        }
+      }
+      return;
+    }
+
+    // Direct scan from inventory header: open streamlined modal!
+    const existing = inventoryItems.find((i) => matchBarcode(i.barcode, barcode));
+    setExistingScannedItem(existing || null);
+    setScannedBarcode(barcode);
+  };
+
+  const handleSaveScannedInventory = async (data: {
+    label: string;
+    localLabel: string;
+    unit: string;
+    rate: number;
+    stock?: number;
+    barcode: string;
+  }) => {
+    await addInventoryItem({
+      ...data,
+      isService: false,
+      needsNaming: false,
+    });
+    setScannedBarcode(null);
+    setExistingScannedItem(null);
+  };
+
+  const handleUpdateScannedStock = async (itemId: string, addStock: number, newRate?: number) => {
+    const item = inventoryItems.find((i) => i.id === itemId);
+    if (!item) return;
+    const currentStock = typeof item.stock === "number" ? item.stock : 0;
+    const updatedStock = currentStock + addStock;
+    await updateInventoryItem(itemId, {
+      ...item,
+      stock: updatedStock,
+      rate: typeof newRate === "number" && newRate > 0 ? newRate : item.rate,
+    });
+    setScannedBarcode(null);
+    setExistingScannedItem(null);
   };
 
   const handleSave = async () => {
@@ -110,6 +268,8 @@ export default function InventoryScreen() {
         rate: parseFloat(form.rate) || 0,
         isService: form.isService,
         stock: form.isService ? undefined : (form.stock ? parseFloat(form.stock) : undefined),
+        barcode: form.barcode.trim() || undefined,
+        needsNaming: false,
       };
       if (editingId) {
         await updateInventoryItem(editingId, data);
@@ -221,6 +381,77 @@ export default function InventoryScreen() {
       color: "#DC2626",
       backgroundColor: "#FEE2E2",
     },
+    unnamedBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: "#FEF3C7",
+      marginHorizontal: 16,
+      marginTop: 12,
+      marginBottom: 4,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: "#FDE68A",
+    },
+    unnamedBannerLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      flex: 1,
+    },
+    unnamedBannerIcon: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: "#FDE68A",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    unnamedBannerTitle: {
+      fontSize: 13,
+      fontFamily: "Inter_600SemiBold",
+      color: "#92400E",
+    },
+    unnamedBannerSub: {
+      fontSize: 11,
+      fontFamily: "Inter_400Regular",
+      color: "#B45309",
+      marginTop: 1,
+    },
+    needsNamingTag: {
+      fontSize: 10,
+      fontFamily: "Inter_600SemiBold",
+      color: "#B45309",
+      backgroundColor: "#FEF3C7",
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    barcodeTag: {
+      fontSize: 10,
+      fontFamily: "Inter_400Regular",
+      color: colors.mutedForeground,
+      backgroundColor: colors.muted,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    barcodeInputRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 16,
+    },
+    barcodeScanBtn: {
+      width: 46,
+      height: 46,
+      borderRadius: colors.radius - 2,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
     itemRate: {
       fontSize: 16,
       fontFamily: "Inter_700Bold",
@@ -234,6 +465,29 @@ export default function InventoryScreen() {
       backgroundColor: "#FEE2E2",
       alignItems: "center",
       justifyContent: "center",
+    },
+    searchBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginHorizontal: 16,
+      marginTop: 10,
+      marginBottom: 6,
+      backgroundColor: colors.muted,
+      borderRadius: colors.radius,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 12,
+      height: 40,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 14,
+      fontFamily: "Inter_400Regular",
+      color: colors.foreground,
+    },
+    searchClear: {
+      padding: 2,
     },
     emptyState: {
       flex: 1,
@@ -291,6 +545,10 @@ export default function InventoryScreen() {
       paddingTop: 12,
       paddingHorizontal: 20,
       paddingBottom: insets.bottom + 24,
+    },
+    swipeArea: {
+      paddingTop: 4,
+      paddingBottom: 2,
     },
     modalHandle: {
       width: 36,
@@ -389,77 +647,156 @@ export default function InventoryScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t.inventory}</Text>
-        <View style={{ flexDirection: "row", gap: 12 }}>
+        <View style={{ flexDirection: "row", gap: 10 }}>
           <Pressable style={styles.actionBtn} onPress={downloadCSVTemplate}>
-            <Feather name="download" size={18} color="#FFFFFF" />
+            <Feather name="download" size={17} color="#FFFFFF" />
           </Pressable>
           <Pressable style={styles.actionBtn} onPress={handleImportCSV}>
-            <Feather name="upload" size={18} color="#FFFFFF" />
+            <Feather name="upload" size={17} color="#FFFFFF" />
+          </Pressable>
+          <Pressable
+            style={styles.actionBtn}
+            onPress={() => {
+              setScanTarget("header");
+              setShowScanner(true);
+            }}
+          >
+            <Feather name="camera" size={17} color="#FFFFFF" />
           </Pressable>
           <Pressable style={styles.actionBtn} onPress={openAdd}>
-            <Feather name="plus" size={18} color="#FFFFFF" />
+            <Feather name="plus" size={17} color="#FFFFFF" />
           </Pressable>
         </View>
       </View>
 
-      {inventoryItems.length === 0 ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIcon}>
-            <Feather name="package" size={32} color={colors.mutedForeground} />
+      {/* Unnamed items reminder banner */}
+      {unnamedItems.length > 0 && (
+        <Pressable
+          style={styles.unnamedBanner}
+          onPress={() => openEdit(unnamedItems[0])}
+        >
+          <View style={styles.unnamedBannerLeft}>
+            <View style={styles.unnamedBannerIcon}>
+              <Feather name="tag" size={15} color="#D97706" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.unnamedBannerTitle}>
+                {unnamedItems.length} {unnamedItems.length === 1 ? "item needs" : "items need"} a name
+              </Text>
+              <Text style={styles.unnamedBannerSub}>
+                Quick-added via barcode · Tap to name & set stock
+              </Text>
+            </View>
           </View>
-          <Text style={styles.emptyTitle}>{t.noItems}</Text>
-          <Text style={styles.emptyText}>{t.addFirstItem}</Text>
-          <Pressable style={styles.templateBtn} onPress={downloadCSVTemplate}>
-            <Feather name="download" size={16} color="#FFFFFF" />
-            <Text style={styles.templateBtnText}>Download CSV Template</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <FlatList
-          data={inventoryItems}
-          keyExtractor={(i) => i.id}
-          style={styles.list}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <Pressable style={styles.itemCard} onPress={() => openEdit(item)}>
-              <View style={styles.itemIcon}>
-                <Feather
-                  name={item.isService ? "zap" : "box"}
-                  size={18}
-                  color={colors.primary}
-                />
-              </View>
-              <View style={styles.itemInfo}>
-                <Text style={styles.itemLabel}>
-                  {item.localLabel || item.label}
-                </Text>
-                <View style={styles.itemMeta}>
-                  <Text style={styles.itemUnit}>{item.unit}</Text>
-                  {item.isService && (
-                    <Text style={styles.serviceTag}>Service</Text>
-                  )}
-                  {!item.isService && item.stock !== undefined && (
-                    <Text style={[styles.stockTag, item.stock <= 5 && styles.stockTagLow]}>
-                      Stock: {item.stock}
-                    </Text>
-                  )}
-                </View>
-              </View>
-              <Text style={styles.itemRate}>₹{item.rate}</Text>
-              <Pressable
-                style={styles.deleteBtn}
-                onPress={() => handleDelete(item)}
-                hitSlop={8}
-              >
-                <Feather name="trash-2" size={14} color={colors.destructive} />
-              </Pressable>
-            </Pressable>
-          )}
-          ListFooterComponent={<View style={styles.listBottom} />}
-        />
+          <Feather name="chevron-right" size={18} color="#D97706" />
+        </Pressable>
       )}
 
-      <Modal visible={modalVisible} transparent animationType="slide">
+      {/* Search Bar */}
+      {inventoryItems.length > 0 && (
+        <View style={styles.searchBar}>
+          <Feather name="search" size={15} color={colors.mutedForeground} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search items by name or barcode..."
+            placeholderTextColor={colors.mutedForeground}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            clearButtonMode="while-editing"
+          />
+          {searchQuery.length > 0 && (
+            <Pressable style={styles.searchClear} onPress={() => setSearchQuery("")}>
+              <Feather name="x" size={15} color={colors.mutedForeground} />
+            </Pressable>
+          )}
+        </View>
+      )}
+
+      <StateView
+        isLoading={isLoading}
+        loadingMessage="Loading inventory..."
+        error={loadError}
+        errorMessage="Could not read inventory catalog from local storage."
+        onRetry={reloadStoreData}
+        isEmpty={inventoryItems.length === 0}
+        emptyIcon="package"
+        emptyTitle={t.noItems}
+        emptySubtitle={t.addFirstItem}
+        emptyActionLabel={"✨ " + t.loadStarterItems}
+        onEmptyAction={handleLoadStarterItems}
+        emptySecondaryActionLabel="+ Add First Item"
+        onEmptySecondaryAction={openAdd}
+      >
+        {filteredItems.length === 0 ? (
+          <EmptyState
+            icon="search"
+            title="No items found"
+            subtitle={`No item in your catalog matches "${searchQuery}"`}
+            actionLabel="Clear Search"
+            onAction={() => setSearchQuery("")}
+            secondaryActionLabel="+ Add This Item"
+            onSecondaryAction={() => {
+              openAdd();
+              setForm((f) => ({ ...f, localLabel: searchQuery }));
+            }}
+          />
+        ) : (
+          <FlatList
+            data={filteredItems}
+            keyExtractor={(i) => i.id}
+            style={styles.list}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <Pressable style={styles.itemCard} onPress={() => openEdit(item)}>
+                <View style={styles.itemIcon}>
+                  <Feather
+                    name={item.isService ? "zap" : "box"}
+                    size={18}
+                    color={colors.primary}
+                  />
+                </View>
+                <View style={styles.itemInfo}>
+                  <Text style={styles.itemLabel}>
+                    {item.localLabel || item.label}
+                  </Text>
+                  <View style={styles.itemMeta}>
+                    <Text style={styles.itemUnit}>{item.unit}</Text>
+                    {item.isService && (
+                      <Text style={styles.serviceTag}>Service</Text>
+                    )}
+                    {!item.isService && item.stock !== undefined && (
+                      <Text style={[styles.stockTag, item.stock <= 5 && styles.stockTagLow]}>
+                        Stock: {item.stock}
+                      </Text>
+                    )}
+                    {item.needsNaming ? (
+                      <Text style={styles.needsNamingTag}>⚠️ Name Pending</Text>
+                    ) : item.barcode ? (
+                      <Text style={styles.barcodeTag}>🏷️ {item.barcode}</Text>
+                    ) : null}
+                  </View>
+                </View>
+                <Text style={styles.itemRate}>₹{item.rate}</Text>
+                <Pressable
+                  style={styles.deleteBtn}
+                  onPress={() => handleDelete(item)}
+                  hitSlop={8}
+                >
+                  <Feather name="trash-2" size={14} color={colors.destructive} />
+                </Pressable>
+              </Pressable>
+            )}
+            ListFooterComponent={<View style={styles.listBottom} />}
+          />
+        )}
+      </StateView>
+
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
         <Pressable
           style={styles.modalOverlay}
           onPress={() => setModalVisible(false)}
@@ -473,14 +810,16 @@ export default function InventoryScreen() {
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
               >
-                <View style={styles.modalHandle} />
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>
-                    {editingId ? t.editItem : t.addItem}
-                  </Text>
-                  <Pressable onPress={() => setModalVisible(false)}>
-                    <Feather name="x" size={22} color={colors.mutedForeground} />
-                  </Pressable>
+                <View {...swipePanResponder.panHandlers} style={styles.swipeArea}>
+                  <View style={styles.modalHandle} />
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>
+                      {editingId ? t.editItem : t.addItem}
+                    </Text>
+                    <Pressable onPress={() => setModalVisible(false)} hitSlop={12}>
+                      <Feather name="x" size={22} color={colors.mutedForeground} />
+                    </Pressable>
+                  </View>
                 </View>
 
                 <Text style={styles.fieldLabel}>{t.itemName} (English)</Text>
@@ -513,6 +852,27 @@ export default function InventoryScreen() {
                   }
                   placeholderTextColor={colors.mutedForeground}
                 />
+
+                <Text style={styles.fieldLabel}>Barcode (Optional)</Text>
+                <View style={styles.barcodeInputRow}>
+                  <TextInput
+                    style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                    value={form.barcode}
+                    onChangeText={(v) => setForm((f) => ({ ...f, barcode: v }))}
+                    placeholder="Scan or enter barcode"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="number-pad"
+                  />
+                  <Pressable
+                    style={styles.barcodeScanBtn}
+                    onPress={() => {
+                      setScanTarget("form");
+                      setShowScanner(true);
+                    }}
+                  >
+                    <Feather name="camera" size={18} color="#FFFFFF" />
+                  </Pressable>
+                </View>
 
                 <Text style={styles.fieldLabel}>{t.price}</Text>
                 <TextInput
@@ -588,6 +948,25 @@ export default function InventoryScreen() {
           </KeyboardAvoidingView>
         </Pressable>
       </Modal>
+
+      <ScannerModal
+        visible={showScanner}
+        onClose={() => setShowScanner(false)}
+        onScan={handleScanBarcode}
+      />
+
+      <UnknownBarcodeModal
+        visible={!!scannedBarcode}
+        barcode={scannedBarcode || ""}
+        mode="inventory"
+        existingItem={existingScannedItem}
+        onClose={() => {
+          setScannedBarcode(null);
+          setExistingScannedItem(null);
+        }}
+        onSaveInventory={handleSaveScannedInventory}
+        onUpdateInventoryStock={handleUpdateScannedStock}
+      />
     </View>
   );
 }

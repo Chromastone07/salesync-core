@@ -11,7 +11,6 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -22,15 +21,6 @@ import { brandConfig } from "@/brand.config";
 import Constants from "expo-constants";
 
 const isExpoGo = Constants.appOwnership === "expo";
-let PostHogProvider: any = null;
-
-if (!isExpoGo) {
-  try {
-    PostHogProvider = require("posthog-react-native").PostHogProvider;
-  } catch (e) {
-    console.warn("Failed to load posthog", e);
-  }
-}
 
 SplashScreen.preventAutoHideAsync();
 
@@ -67,7 +57,6 @@ export default function RootLayout() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <KeyboardProvider>
             <AppProvider>
               <AppLockGuard>
                 <StoreProvider>
@@ -75,26 +64,10 @@ export default function RootLayout() {
                 </StoreProvider>
               </AppLockGuard>
             </AppProvider>
-          </KeyboardProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
     </ErrorBoundary>
   );
 
-  if (isExpoGo || !PostHogProvider || !brandConfig.enableAnalytics) {
-    return <SafeAreaProvider>{content}</SafeAreaProvider>;
-  }
-
-  return (
-    <SafeAreaProvider>
-      <PostHogProvider 
-        apiKey="phc_qLC3zpJFypWLhweMRLcTjxabuaKtngVecrCanrupyku3"
-        options={{
-          host: "https://us.i.posthog.com"
-        }}
-      >
-        {content}
-      </PostHogProvider>
-    </SafeAreaProvider>
-  );
+  return <SafeAreaProvider>{content}</SafeAreaProvider>;
 }

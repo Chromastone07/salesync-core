@@ -12,6 +12,10 @@ export type BusinessType =
   | "hardware"
   | "flour_mill"
   | "stationery"
+  | "pharmacy"
+  | "bakery_cafe"
+  | "garments"
+  | "electronics"
   | "other";
 
 export const BUSINESS_TYPES: {
@@ -23,9 +27,13 @@ export const BUSINESS_TYPES: {
 }[] = [
   { type: "kirana", en: "Grocery / Kirana", hi: "किराना", mr: "किराणा", icon: "shopping-bag" },
   { type: "dairy", en: "Milk / Dairy", hi: "दूध / डेयरी", mr: "दूध / डेअरी", icon: "droplet" },
+  { type: "pharmacy", en: "Pharmacy / Medical", hi: "दवा दुकान / मेडिकल", mr: "औषध दुकान / मेडिकल", icon: "plus-circle" },
+  { type: "bakery_cafe", en: "Tea / Bakery / Snacks", hi: "चाय / बेकरी / नाश्ता", mr: "चहा / बेकरी / नाश्ता", icon: "coffee" },
   { type: "hardware", en: "Hardware", hi: "हार्डवेयर", mr: "हार्डवेअर", icon: "tool" },
   { type: "flour_mill", en: "Flour Mill", hi: "आटा चक्की", mr: "पीठ चक्की", icon: "wind" },
   { type: "stationery", en: "Stationery", hi: "स्टेशनरी", mr: "स्टेशनरी", icon: "pen-tool" },
+  { type: "garments", en: "Clothing / Garments", hi: "कपड़ा दुकान", mr: "कापड दुकान", icon: "tag" },
+  { type: "electronics", en: "Mobile & Electronics", hi: "मोबाइल / इलेक्ट्रॉनिक्स", mr: "मोबाइल / इलेक्ट्रॉनिक्स", icon: "smartphone" },
   { type: "other", en: "Other Shop", hi: "अन्य दुकान", mr: "इतर दुकान", icon: "briefcase" },
 ];
 
@@ -104,6 +112,18 @@ type T = {
   backupFrequencyWeekly: string;
   backupFrequencyMonthly: string;
   selectGoogleDrive: string;
+  loadStarterItems: string;
+  starterItemsPrompt: string;
+  starterItemsSuccess: string;
+  stores: string;
+  activeStore: string;
+  switchStore: string;
+  addNewStore: string;
+  createStore: string;
+  deleteStore: string;
+  deleteStoreConfirm: string;
+  cannotDeleteOnlyStore: string;
+  preloadStarter: string;
 };
 
 export const translations: Record<Language, T> = {
@@ -182,6 +202,18 @@ export const translations: Record<Language, T> = {
     backupFrequencyWeekly: "Weekly",
     backupFrequencyMonthly: "Monthly",
     selectGoogleDrive: "Select Google Drive to overwrite backup file.",
+    loadStarterItems: "Load Starter Items",
+    starterItemsPrompt: "Would you like to add popular starter items for this shop to your inventory?",
+    starterItemsSuccess: "Starter items added successfully!",
+    stores: "Stores",
+    activeStore: "Active Store",
+    switchStore: "Switch Store",
+    addNewStore: "Add New Store",
+    createStore: "Create Store",
+    deleteStore: "Delete Store",
+    deleteStoreConfirm: "Are you sure you want to delete this store?",
+    cannotDeleteOnlyStore: "You must keep at least one store profile.",
+    preloadStarter: "Add starter items for this shop",
   },
   hi: {
     selectLanguage: "भाषा चुनें",
@@ -258,6 +290,18 @@ export const translations: Record<Language, T> = {
     backupFrequencyWeekly: "साप्ताहिक",
     backupFrequencyMonthly: "मासिक",
     selectGoogleDrive: "बैकअप फ़ाइल को सहेजने के लिए Google Drive चुनें।",
+    loadStarterItems: "शुरुआती सामान जोड़ें",
+    starterItemsPrompt: "क्या आप इस दुकान के लिए लोकप्रिय सामान अपने स्टॉक में जोड़ना चाहते हैं?",
+    starterItemsSuccess: "शुरुआती सामान सफलतापूर्वक जोड़ा गया!",
+    stores: "दुकानें",
+    activeStore: "सक्रिय दुकान",
+    switchStore: "दुकान बदलें",
+    addNewStore: "नई दुकान जोड़ें",
+    createStore: "दुकान बनाएं",
+    deleteStore: "दुकान हटाएं",
+    deleteStoreConfirm: "क्या आप वाकई इस दुकान को हटाना चाहते हैं?",
+    cannotDeleteOnlyStore: "कम से कम एक दुकान प्रोफ़ाइल होनी चाहिए।",
+    preloadStarter: "इस दुकान के लिए शुरुआती सामान जोड़ें",
   },
   mr: {
     selectLanguage: "भाषा निवडा",
@@ -334,8 +378,39 @@ export const translations: Record<Language, T> = {
     backupFrequencyWeekly: "साप्ताहिक",
     backupFrequencyMonthly: "मासिक",
     selectGoogleDrive: "बॅकअप सेव्ह करण्यासाठी Google Drive निवडा.",
+    loadStarterItems: "सुरुवाती वस्तू जोडा",
+    starterItemsPrompt: "तुम्हाला या व्यवसायासाठी लोकप्रिय वस्तू तुमच्या स्टॉकमध्ये जोडायच्या आहेत का?",
+    starterItemsSuccess: "सुरुवाती वस्तू यशस्वीरित्या जोडल्या गेल्या!",
+    stores: "दुकाने",
+    activeStore: "सक्रिय दुकान",
+    switchStore: "दुकान बदला",
+    addNewStore: "नवीन दुकान जोडा",
+    createStore: "दुकान तयार करा",
+    deleteStore: "दुकान हटवा",
+    deleteStoreConfirm: "तुम्हाला खात्री आहे का ही दुकान हटवायची आहे?",
+    cannotDeleteOnlyStore: "किमान एक दुकान प्रोफाइल असणे आवश्यक आहे.",
+    preloadStarter: "या दुकानासाठी सुरुवाती वस्तू जोडा",
   },
 };
+
+export const UNIVERSAL_UNITS = [
+  "piece",
+  "kg",
+  "liter",
+  "gram",
+  "meter",
+  "dozen",
+  "pack",
+  "bottle",
+  "strip",
+  "tablet",
+  "box",
+  "pair",
+  "plate",
+  "cup",
+] as const;
+
+export type UniversalUnit = (typeof UNIVERSAL_UNITS)[number];
 
 export type SuggestedItem = {
   en: string;
@@ -350,41 +425,92 @@ export const SUGGESTED_ITEMS: Record<BusinessType, SuggestedItem[]> = {
   kirana: [
     { en: "Sugar", hi: "चीनी", mr: "साखर", unit: "kg", rate: 44, isService: false },
     { en: "Milk", hi: "दूध", mr: "दूध", unit: "liter", rate: 60, isService: false },
-    { en: "Tea", hi: "चाय", mr: "चहा", unit: "kg", rate: 400, isService: false },
-    { en: "Oil", hi: "तेल", mr: "तेल", unit: "liter", rate: 120, isService: false },
-    { en: "Rice", hi: "चावल", mr: "तांदूळ", unit: "kg", rate: 50, isService: false },
+    { en: "Tea Powder", hi: "चाय पत्ती", mr: "चहा पावडर", unit: "kg", rate: 400, isService: false },
+    { en: "Cooking Oil", hi: "तेल", mr: "तेल", unit: "liter", rate: 130, isService: false },
+    { en: "Basmati Rice", hi: "चावल", mr: "तांदूळ", unit: "kg", rate: 60, isService: false },
     { en: "Salt", hi: "नमक", mr: "मीठ", unit: "kg", rate: 20, isService: false },
+    { en: "Wheat Flour / Atta", hi: "गेहूं आटा", mr: "गहू पीठ", unit: "kg", rate: 35, isService: false },
+    { en: "Toor Dal", hi: "अरहर दाल", mr: "तूर डाळ", unit: "kg", rate: 140, isService: false },
   ],
   dairy: [
-    { en: "Milk", hi: "दूध", mr: "दूध", unit: "liter", rate: 60, isService: false },
-    { en: "Curd", hi: "दही", mr: "दही", unit: "kg", rate: 70, isService: false },
-    { en: "Butter", hi: "मक्खन", mr: "लोणी", unit: "kg", rate: 500, isService: false },
-    { en: "Ghee", hi: "घी", mr: "तूप", unit: "kg", rate: 600, isService: false },
-    { en: "Paneer", hi: "पनीर", mr: "पनीर", unit: "kg", rate: 350, isService: false },
+    { en: "Buffalo Milk", hi: "भैंस का दूध", mr: "म्हशीचे दूध", unit: "liter", rate: 70, isService: false },
+    { en: "Cow Milk", hi: "गाय का दूध", mr: "गायीचे दूध", unit: "liter", rate: 55, isService: false },
+    { en: "Fresh Curd", hi: "ताजा दही", mr: "दही", unit: "kg", rate: 70, isService: false },
+    { en: "Fresh Paneer", hi: "ताजा पनीर", mr: "पनीर", unit: "kg", rate: 360, isService: false },
+    { en: "Pure Desi Ghee", hi: "शुद्ध घी", mr: "शुद्ध तूप", unit: "kg", rate: 650, isService: false },
+    { en: "Butter / Makkhan", hi: "मक्खन", mr: "लोणी", unit: "kg", rate: 500, isService: false },
+    { en: "Chaas / Buttermilk", hi: "छाछ", mr: "ताक", unit: "pack", rate: 15, isService: false },
   ],
   hardware: [
-    { en: "Nails", hi: "कील", mr: "खिळे", unit: "kg", rate: 80, isService: false },
-    { en: "Paint", hi: "रंग", mr: "रंग", unit: "liter", rate: 200, isService: false },
-    { en: "Hammer", hi: "हथौड़ा", mr: "हातोडा", unit: "piece", rate: 150, isService: false },
-    { en: "Screws", hi: "स्क्रू", mr: "स्क्रू", unit: "dozen", rate: 30, isService: false },
-    { en: "Wire", hi: "तार", mr: "तार", unit: "meter", rate: 25, isService: false },
+    { en: "Cement Bag", hi: "सीमेंट बोरी", mr: "सिमेंट गोणी", unit: "pack", rate: 380, isService: false },
+    { en: "Iron Nails", hi: "कील", mr: "लोखंडी खिळे", unit: "kg", rate: 90, isService: false },
+    { en: "PVC Pipe", hi: "पीवीसी पाइप", mr: "पाईप", unit: "meter", rate: 35, isService: false },
+    { en: "Copper Wire", hi: "कॉपर तार", mr: "तांब्याची तार", unit: "meter", rate: 25, isService: false },
+    { en: "Asian Paint", hi: "पेंट / रंग", mr: "रंग", unit: "liter", rate: 220, isService: false },
+    { en: "Steel Hammer", hi: "हथौड़ा", mr: "हातोडा", unit: "piece", rate: 160, isService: false },
+    { en: "Wood Screws", hi: "स्क्रू", mr: "स्क्रू", unit: "dozen", rate: 30, isService: false },
+    { en: "LED Bulb 9W", hi: "एलईडी बल्ब 9W", mr: "एलईडी बल्ब 9W", unit: "piece", rate: 80, isService: false },
   ],
   flour_mill: [
-    { en: "Grinding Charge", hi: "पिसाई", mr: "दळणे", unit: "kg", rate: 5, isService: true },
-    { en: "Wheat Flour", hi: "गेहूं आटा", mr: "गहू पीठ", unit: "kg", rate: 35, isService: false },
+    { en: "Wheat Grinding", hi: "गेहूं पिसाई", mr: "गहू दळणे", unit: "kg", rate: 5, isService: true },
+    { en: "Spices Grinding", hi: "मसाला पिसाई", mr: "मसाला दळणे", unit: "kg", rate: 25, isService: true },
+    { en: "Chana Besan Grinding", hi: "बेसन पिसाई", mr: "बेसन दळणे", unit: "kg", rate: 8, isService: true },
+    { en: "Fresh Wheat Flour", hi: "ताजा गेहूं आटा", mr: "ताजे गहू पीठ", unit: "kg", rate: 35, isService: false },
+    { en: "Makka Flour", hi: "मक्का आटा", mr: "मका पीठ", unit: "kg", rate: 40, isService: false },
     { en: "Rice Flour", hi: "चावल आटा", mr: "तांदूळ पीठ", unit: "kg", rate: 45, isService: false },
-    { en: "Chakki Charge", hi: "चक्की चार्ज", mr: "चक्की शुल्क", unit: "kg", rate: 3, isService: true },
   ],
   stationery: [
-    { en: "Pen", hi: "पेन", mr: "पेन", unit: "piece", rate: 10, isService: false },
-    { en: "Notebook", hi: "कॉपी", mr: "वही", unit: "piece", rate: 30, isService: false },
-    { en: "Pencil", hi: "पेंसिल", mr: "पेन्सिल", unit: "piece", rate: 5, isService: false },
-    { en: "Eraser", hi: "रबर", mr: "रबर", unit: "piece", rate: 5, isService: false },
-    { en: "Scale", hi: "स्केल", mr: "पट्टी", unit: "piece", rate: 10, isService: false },
+    { en: "Ball Pen", hi: "बॉल पेन", mr: "बॉल पेन", unit: "piece", rate: 10, isService: false },
+    { en: "Long Register Notebook", hi: "रजिस्टर कॉपी", mr: "रजिस्टर वही", unit: "piece", rate: 40, isService: false },
+    { en: "School Notebook", hi: "स्कूल कॉपी", mr: "शालेय वही", unit: "piece", rate: 25, isService: false },
+    { en: "A4 Paper Ream", hi: "A4 पेपर रिम", mr: "A4 पेपर रीम", unit: "pack", rate: 260, isService: false },
+    { en: "Pencil Box (10 pcs)", hi: "पेंसिल पैकेट", mr: "पेन्सिल पॅकेट", unit: "pack", rate: 50, isService: false },
+    { en: "Eraser / Sharpener", hi: "रबर / कटर", mr: "रबर / शार्पनर", unit: "piece", rate: 5, isService: false },
+    { en: "Geometry Box", hi: "कंपास बॉक्स", mr: "कंपास पेटी", unit: "piece", rate: 90, isService: false },
+    { en: "Adhesive Glue", hi: "गोंद / फेविकोल", mr: "डिंक / फेविकॉल", unit: "bottle", rate: 20, isService: false },
+  ],
+  pharmacy: [
+    { en: "Paracetamol 650mg", hi: "पैरासिटामोल 650mg", mr: "पॅरासिटामॉल 650mg", unit: "strip", rate: 30, isService: false },
+    { en: "Cough & Cold Syrup", hi: "खांसी का सिरप", mr: "खोकल्याचे सिरप", unit: "bottle", rate: 90, isService: false },
+    { en: "Band-Aid / Bandage", hi: "बैंड-एड / पट्टी", mr: "बँड-एड / पट्टी", unit: "piece", rate: 5, isService: false },
+    { en: "Antacid Tablets", hi: "एंटासिड गोली", mr: "अँटासिड गोळी", unit: "strip", rate: 25, isService: false },
+    { en: "Pain Relief Spray", hi: "दर्द निवारक स्प्रे", mr: "वेदना निवारक स्प्रे", unit: "bottle", rate: 130, isService: false },
+    { en: "ORS Electral Drink", hi: "ओआरएस इलेक्ट्रल", mr: "ओआरएस इलेक्ट्रल", unit: "pack", rate: 22, isService: false },
+    { en: "Multivitamin Zinc", hi: "मल्टीविटामिन कैप्सूल", mr: "मल्टिव्हिटॅमिन कॅप्सूल", unit: "strip", rate: 110, isService: false },
+    { en: "Antiallergic Cetirizine", hi: "सिट्रीजीन गोली", mr: "सिट्रीझिन गोळी", unit: "strip", rate: 20, isService: false },
+  ],
+  bakery_cafe: [
+    { en: "Special Masala Chai", hi: "स्पेशल मसाला चाय", mr: "स्पेशल मसाला चहा", unit: "cup", rate: 12, isService: false },
+    { en: "Hot Filter Coffee", hi: "कॉफी", mr: "कॉफी", unit: "cup", rate: 25, isService: false },
+    { en: "Crispy Samosa", hi: "समोसा", mr: "समोसा", unit: "piece", rate: 15, isService: false },
+    { en: "Fresh Bread Loaf", hi: "ताजा ब्रेड", mr: "ब्रेड", unit: "pack", rate: 35, isService: false },
+    { en: "Bun Maska / Toast", hi: "बन मस्का / टोस्ट", mr: "बन मस्का / टोस्ट", unit: "plate", rate: 30, isService: false },
+    { en: "Veg Puff / Patties", hi: "वेज पफ / पैटीज", mr: "व्हेज पफ / पॅटीस", unit: "piece", rate: 20, isService: false },
+    { en: "Bakery Biscuit / Rusk", hi: "बिस्किट / रस्क", mr: "बिस्किट / रस्क", unit: "pack", rate: 30, isService: false },
+    { en: "Cold Drink / Water", hi: "कोल्ड ड्रिंक / पानी", mr: "कोल्ड ड्रिंक / पाणी", unit: "bottle", rate: 20, isService: false },
+  ],
+  garments: [
+    { en: "Cotton T-Shirt", hi: "कॉटन टी-शर्ट", mr: "टी-शर्ट", unit: "piece", rate: 250, isService: false },
+    { en: "Formal Shirt", hi: "शर्ट", mr: "शर्ट", unit: "piece", rate: 450, isService: false },
+    { en: "Denim Jeans Pant", hi: "जींस", mr: "जीन्स", unit: "piece", rate: 750, isService: false },
+    { en: "Ladies Kurti / Top", hi: "कुर्ती / टॉप", mr: "कुर्ती / टॉप", unit: "piece", rate: 400, isService: false },
+    { en: "Daily Wear Saree", hi: "साड़ी", mr: "साडी", unit: "piece", rate: 600, isService: false },
+    { en: "Cotton Socks", hi: "मोज़े", mr: "मोजे", unit: "pair", rate: 60, isService: false },
+    { en: "Suit / Shirt Fabric", hi: "कपड़ा / फैब्रिक", mr: "कापड / फॅब्रिक", unit: "meter", rate: 200, isService: false },
+    { en: "Alteration / Fitting", hi: "अल्टर / फिटिंग", mr: "अल्टर / फिटिंग", unit: "piece", rate: 50, isService: true },
+  ],
+  electronics: [
+    { en: "Tempered Glass Guard", hi: "स्क्रीन गार्ड / ग्लास", mr: "स्क्रीन गार्ड", unit: "piece", rate: 99, isService: false },
+    { en: "Type-C Fast Cable", hi: "टाइप-C केबल", mr: "टाइप-C केबल", unit: "piece", rate: 120, isService: false },
+    { en: "20W Fast Charger", hi: "फास्ट चार्जर", mr: "फास्ट चार्जर", unit: "piece", rate: 299, isService: false },
+    { en: "Earphones / Handsfree", hi: "इयरफ़ोन", mr: "इअरफोन", unit: "piece", rate: 150, isService: false },
+    { en: "Mobile Back Cover", hi: "बैक कवर", mr: "बॅक कव्हर", unit: "piece", rate: 120, isService: false },
+    { en: "Screen / Folder Change", hi: "डिस्प्ले फोल्डर रिपेयर", mr: "डिस्प्ले दुरुस्ती", unit: "piece", rate: 850, isService: true },
+    { en: "Mobile Repair Service", hi: "मोबाइल रिपेयर", mr: "मोबाइल दुरुस्ती", unit: "piece", rate: 200, isService: true },
   ],
   other: [
-    { en: "Item 1", hi: "सामान 1", mr: "वस्तू 1", unit: "piece", rate: 10, isService: false },
-    { en: "Item 2", hi: "सामान 2", mr: "वस्तू 2", unit: "piece", rate: 20, isService: false },
-    { en: "Service", hi: "सेवा", mr: "सेवा", unit: "piece", rate: 50, isService: true },
+    { en: "General Product 1", hi: "सामान 1", mr: "वस्तू 1", unit: "piece", rate: 50, isService: false },
+    { en: "General Product 2", hi: "सामान 2", mr: "वस्तू 2", unit: "piece", rate: 100, isService: false },
+    { en: "Custom Service", hi: "सेवा / सर्विस", mr: "सेवा / काम", unit: "piece", rate: 150, isService: true },
   ],
 };

@@ -32,7 +32,7 @@ export default function QuickStartScreen() {
   const router = useRouter();
   const { language, businessType, completeOnboarding } = useApp();
   const { addInventoryItems } = useStore();
-  const t = translations[language];
+  const t = translations[language] || translations.en;
 
   const suggested = SUGGESTED_ITEMS[businessType] ?? SUGGESTED_ITEMS.other;
   const [items, setItems] = useState<ItemState[]>(
